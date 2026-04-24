@@ -6,6 +6,7 @@ import { pool } from './db/index.js'
 import podcastsRouter from './routes/podcasts.js'
 import './jobs/worker.js'
 import searchRouter from './routes/search.js'
+import episodeRouter from './routes/episodes.js'
 
 const app = express()
 app.use(cors({ origin: 'http://localhost:3000' }))
@@ -14,6 +15,8 @@ app.use(express.json())
 app.use('/podcasts', podcastsRouter)
 
 app.use('/search', searchRouter)
+
+app.use('/episodes', episodeRouter)
 
 app.get('/health', async (_req, res) => {
   const result = await pool.query('SELECT NOW()')

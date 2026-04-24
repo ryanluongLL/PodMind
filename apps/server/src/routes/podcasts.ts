@@ -93,4 +93,30 @@ router.post('/:id/transcribe', async (req, res) => {
     res.json({message: 'Transcription job enqueued', episodeId: episode.id})
 })
 
+///GET /podcasts/:id
+/// returns one podcast + all its episode, each joined with is transcript status.
+/// Episodes are sorted with favorites at the top, then most recent first
+router.get('/:id', async (req, res) => {
+    const { id } = req.params
+    
+    const podcastRes = await pool.query(`SELECT * FROM podcasts WHERE id = $1 `, [id])
+    if (podcastRes.rows.length === 0) {
+        res.status(404).json({ error: 'Podcast not found' })
+        return
+    }
+
+    ///LEFT JOIN so episodes without transcripts still show up
+    const episodesRes = await pool.query(
+        `SELECT
+            e.*,
+            t.status AS transcript_status
+        FROM episodes e
+        LEFT JOIN transcripts t ON t.episode_id = e.id
+        WHERE e.podcast_id = $1
+        ORDER BY e.is_favorite DESC, e.published_at DESC`,
+        [id]
+    )
+    res.json({podcast: podcastRes.rows[0], episodes: episodesRes.rows})
+})
+
 export default router
