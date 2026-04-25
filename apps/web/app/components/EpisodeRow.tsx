@@ -82,7 +82,7 @@ export function EpisodeRow({ episode }: { episode: Episode }) {
                         <Sparkles size={16} />
                     </button>
                 )}
-                {episode.episode_url &&(
+                {episode.episode_url && episode.episode_url.startsWith('http') &&(
                     <a
                         href={episode.episode_url}
                         target="_blank"
