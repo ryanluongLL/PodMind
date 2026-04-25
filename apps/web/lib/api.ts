@@ -50,3 +50,34 @@ export async function toggleFavorite(episodeId: string, isFavorite: boolean): Pr
 export async function transcribeEpisode(episodeId: string): Promise<void>{
     await api.post(`/episodes/${episodeId}/transcribe`)
 }
+
+export interface SearchResult{
+    episode_id: string
+    chunk_text: string
+    chunk_index: string
+    episode_title: string
+    podcast_name: string
+    icon_url: string | null
+    episode_url: string
+    similarity: number
+}
+
+///calls GET /search?q=... and returns ranked transcript chunks
+
+export async function searchTranscripts(query: string): Promise<SearchResult[]>{
+    const { data } = await api.get<{ query: string; results: SearchResult[] }>('/search', {
+        params: {q:query},
+    })
+    return data.results
+}
+
+///wire up the auth token to every request
+export function setupAuthInterceptor(getToken: () => Promise<string | null>) {
+    api.interceptors.request.use(async (config) => {
+        const token = await getToken()
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`
+        }
+        return config
+    })
+}

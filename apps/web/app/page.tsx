@@ -7,6 +7,9 @@ import { getPodcasts } from "@/lib/api"
 import { PodcastCard } from './components/PostcastCard'
 import { AddPodcastModal } from './components/AddPodcastModal'
 import styles from './page.module.css'
+import Link from "next/link"
+import { Show, UserButton } from '@clerk/nextjs'
+
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { data: podcasts, isLoading } = useQuery({
@@ -23,15 +26,20 @@ export default function Home() {
         </div>
 
         <div className={styles.actions}>
-          <button className={styles.searchBtn}>
+          <Link href="/search" className={styles.searchBtn}>
             <Search size={16} />
             <span>Search</span>
-          </button>
+          </Link>
 
           <button onClick={() => setIsModalOpen(true)} className={styles.addBtn}>
             <Plus size={16} />
             <span>Add podcast</span>
           </button>
+
+          {/* Auth buttons — Clerk handles which ones to show based on session state */}
+          <Show when="signed-in">
+            <UserButton />
+          </Show>
         </div>
       </header>
 

@@ -27,7 +27,11 @@ function compressAudio(inputPath: string, outputPath: string): Promise<void> {
 const worker = new Worker(
     'transcription',
     async (job) => {
-        const { episodeId, audioUrl } = job.data as { episodeId: string; audioUrl: string }
+        const { episodeId, audioUrl, userId } = job.data as {
+            episodeId: string
+            audioUrl: string
+            userId: string
+        }
         console.log(`[worker] starting transcription for episode ${episodeId}`)
 
         // Check if transcript already exists — skip Whisper to save API costs
@@ -89,8 +93,8 @@ const worker = new Worker(
             })
             const vector = embeddingRes.data[0]?.embedding
             await pool.query(
-            `INSERT INTO embeddings (episode_id, chunk_text, embedding, chunk_index)
-            VALUES ($1, $2, $3, $4)`,
+            `INSERT INTO embeddings (episode_id, chunk_text, embedding, chunk_index, user_id)
+            VALUES ($1, $2, $3, $4, $5)`,
             [episodeId, chunk, JSON.stringify(vector), i]
             )
         }

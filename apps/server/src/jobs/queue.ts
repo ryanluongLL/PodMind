@@ -7,10 +7,10 @@ export const transcriptionQueue = new Queue('transcription', {
     },
 })
 
-export async function enqueueTranscription(episodeId: string, audioUrl: string) {
+export async function enqueueTranscription(episodeId: string, audioUrl: string, userId:string) {
     await transcriptionQueue.add(
         'transcribe',
-        { episodeId, audioUrl },
+        { episodeId, audioUrl, userId },
         {
             attempts: 3,
             backoff: {type: 'exponential', delay:5000}
