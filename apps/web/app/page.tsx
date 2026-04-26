@@ -9,7 +9,7 @@ import { AddPodcastModal } from './components/AddPodcastModal'
 import styles from './page.module.css'
 import Link from "next/link"
 import { Show, UserButton } from '@clerk/nextjs'
-
+import { Compass } from "lucide-react"
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { data: podcasts, isLoading } = useQuery({
@@ -29,6 +29,11 @@ export default function Home() {
           <Link href="/search" className={styles.searchBtn}>
             <Search size={16} />
             <span>Search</span>
+          </Link>
+
+          <Link href="/discover" className={styles.searchBtn}>
+            <Compass size={16} />
+            <span>Discover</span>
           </Link>
 
           <button onClick={() => setIsModalOpen(true)} className={styles.addBtn}>
