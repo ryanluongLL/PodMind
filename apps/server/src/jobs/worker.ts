@@ -34,6 +34,10 @@ const worker = new Worker(
         }
         console.log(`[worker] starting transcription for episode ${episodeId}`)
 
+        await pool.query(
+            `UPDATE transcripts SET status = 'processing' WHERE episode_id = $1`,[episodeId]
+        )
+
         // Check if transcript already exists — skip Whisper to save API costs
         const existing = await pool.query(
             `SELECT full_text FROM transcripts WHERE episode_id = $1 AND full_text != ''`,
@@ -41,16 +45,13 @@ const worker = new Worker(
         )
 
         let transcriptText: string
+        let segments: { start: number; end: number; text:string}[]
 
-        if (existing.rows.length > 0) {
+        if (existing.rows.length > 0 && existing.rows[0].segments) {
             console.log(`[worker] transcript already exists, skipping Whisper`)
             transcriptText = existing.rows[0].full_text
+            segments = existing.rows[0].segments
         } else {
-            await pool.query(
-            `UPDATE transcripts SET status = 'processing' WHERE episode_id = $1`,
-            [episodeId]
-            )
-
             const response = await fetch(audioUrl)
             const arrayBuffer = await response.arrayBuffer()
             const buffer = Buffer.from(arrayBuffer)
@@ -64,18 +65,27 @@ const worker = new Worker(
             console.log(`[worker] compressed size: ${(compressedSize / 1024 / 1024).toFixed(1)} MB`)
             fs.unlinkSync(rawPath)
 
+            ///verbose_json gives us word-level timestamps for the synchronized player
             const transcription = await openai.audio.transcriptions.create({
-            file: fs.createReadStream(compressedPath),
-            model: 'whisper-1',
+                file: fs.createReadStream(compressedPath),
+                model: 'whisper-1',
+                response_format: 'verbose_json',
             })
             fs.unlinkSync(compressedPath)
             console.log(`[worker] transcription done, length: ${transcription.text.length} chars`)
 
             transcriptText = transcription.text
+            ///each segments has start/end time in seconds + the spoken text
+            segments = (transcription.segments ?? []).map((s) => ({
+                start: s.start,
+                end: s.end,
+                text: s.text.trim(),
+            }))
+            console.log(`[worker] transcription done: ${transcriptText.length} chars, ${segments.length} segments`)
 
             await pool.query(
-            `UPDATE transcripts SET full_text = $1, status = 'done' WHERE episode_id = $2`,
-            [transcriptText, episodeId]
+                `UPDATE transcripts SET full_text = $1, segments = $2, status = 'done' WHERE episode_id = $3`,
+                [transcriptText, JSON.stringify(segments), episodeId]
             )
         }
 
@@ -88,14 +98,14 @@ const worker = new Worker(
         for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i] ?? ''
             const embeddingRes = await openai.embeddings.create({
-            model: 'text-embedding-3-small',
-            input: chunk,
+                model: 'text-embedding-3-small',
+                input: chunk,
             })
             const vector = embeddingRes.data[0]?.embedding
             await pool.query(
-            `INSERT INTO embeddings (episode_id, chunk_text, embedding, chunk_index, user_id)
-            VALUES ($1, $2, $3, $4, $5)`,
-            [episodeId, chunk, JSON.stringify(vector), i]
+                `INSERT INTO embeddings (episode_id, chunk_text, embedding, chunk_index, user_id)
+                VALUES ($1, $2, $3, $4, $5)`,
+                [episodeId, chunk, JSON.stringify(vector), i, userId]
             )
         }
 
@@ -118,7 +128,7 @@ function chunkText(text: string, wordsPerChunk: number): string[]{
 }
 
 worker.on('failed', (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err)
+  console.error(`[worker] job ${job?.id} failed:`, err)
 })
 
 export default worker

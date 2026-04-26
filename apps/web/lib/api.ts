@@ -26,6 +26,7 @@ export interface Episode{
     rating: number | null
     hashtags: string[]
     transcript_status: 'pending' | 'processing' | 'done' | 'failed' | null
+    transcrip_segments: { start: number; end: number; text:string}[]|null
 }
 
 export async function getPodcasts(): Promise<Podcast[]>{
