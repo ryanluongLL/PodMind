@@ -1,6 +1,7 @@
 'use client'
 
-import { Heart, Sparkles, ExternalLink } from "lucide-react"
+import { Play, Heart, Sparkles, ExternalLink } from "lucide-react"
+import { usePlayer } from "@/lib/playerStore";
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type Episode, toggleFavorite, transcribeEpisode } from "@/lib/api";
 import styles from './EpisodeRow.module.css'
@@ -32,6 +33,20 @@ export function EpisodeRow({ episode }: { episode: Episode }) {
             queryClient.invalidateQueries({queryKey: ['podcast', episode.podcast_id]})
         }
     })
+
+    const { play } = usePlayer()
+    
+    const handlePlay = () => {
+        if (!episode.audio_url) return
+        play({
+            episodeId: episode.id,
+            episodeTitle: episode.title,
+            podcastName: '',
+            audioUrl: episode.audio_url,
+            iconUrl: episode.icon_url,
+            segments: episode.transcrip_segments ?? [],
+        })
+    }
 
     ///format the date
     let dateStr;
@@ -72,6 +87,15 @@ export function EpisodeRow({ episode }: { episode: Episode }) {
 
             <div className={styles.actions}>
                 {/* Only show the transcribe button if there's no transcript yet */}
+                {episode.audio_url && (
+                    <button
+                        onClick={handlePlay}
+                        className={styles.transcribeBtn}
+                        title="Play episode"
+                    >
+                        <Play size={16} fill="currentColor" />
+                    </button>
+                )}
                 {!episode.transcript_status && (
                     <button
                         onClick={() => transcribeMutation.mutate()}

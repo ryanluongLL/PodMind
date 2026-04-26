@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useState, useEffect } from "react"
 import { useAuth } from "@clerk/nextjs"
 import {setupAuthInterceptor} from '@/lib/api'
+import { PlayerProvider } from "@/lib/playerStore"
 
 export function Providers({ children }: { children: React.ReactNode }) {
     const [queryClient] = useState(() => new QueryClient())
@@ -13,5 +14,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         setupAuthInterceptor(getToken)
     }, [getToken])
 
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    return (
+        <QueryClientProvider client={queryClient}>
+            <PlayerProvider>
+                {children}
+            </PlayerProvider>
+        </QueryClientProvider>
+  )
 }

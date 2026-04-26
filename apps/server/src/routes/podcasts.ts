@@ -94,12 +94,12 @@ router.get('/:id', async (req, res) => {
   }
 
   const episodesRes = await pool.query(
-    `SELECT e.*, t.status AS transcript_status
-     FROM episodes e
-     LEFT JOIN transcripts t ON t.episode_id = e.id
-     WHERE e.podcast_id = $1 AND e.user_id = $2
-     ORDER BY e.is_favorite DESC, e.published_at DESC`,
-    [id, userId]
+        `SELECT e.*, t.status AS transcript_status, t.segments AS transcript_segments
+        FROM episodes e
+        LEFT JOIN transcripts t ON t.episode_id = e.id
+        WHERE e.podcast_id = $1 AND e.user_id = $2
+        ORDER BY e.is_favorite DESC, e.published_at DESC`,
+      [id, userId]
   )
 
   res.json({ podcast: podcastRes.rows[0], episodes: episodesRes.rows })
