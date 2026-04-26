@@ -8,6 +8,8 @@ import searchRouter from './routes/search.js'
 import episodeRouter from './routes/episodes.js'
 import './jobs/worker.js'
 import { clerkAuth, requireAuth } from './middleware/auth.js'
+import discoverRouter from './routes/discover.js'
+
 
 const app = express()
 app.use(cors({ origin: 'http://localhost:3000' }))
@@ -25,6 +27,7 @@ app.get('/health', async (_req, res) => {
 app.use('/podcasts', requireAuth, podcastsRouter)
 app.use('/search', requireAuth, searchRouter)
 app.use('/episodes', requireAuth, episodeRouter)
+app.use('/discover', discoverRouter)
 
 app.listen(process.env.PORT || 3001, () => {
   console.log(`Server running on port ${process.env.PORT || 3001}`)
