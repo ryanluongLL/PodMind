@@ -4,6 +4,7 @@
   background: var(--bg-card);
   border-radius: 0.75rem;
   transition: background 0.2s;
+  position: relative;
 }
 
 .card:hover {
@@ -52,4 +53,44 @@
   font-size: 0.875rem;
   color: var(--text-dim);
   margin-top: 0.25rem;
+}
+
+.deleteBtn {
+  position: absolute;
+  top: 5%;
+  right: 5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;          /* ← slightly larger base size */
+  height: 2.25rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;             /* ← brighter so it stands out */
+  border-radius: 9999px;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+  z-index: 1;
+  backdrop-filter: blur(4px);
+}
+
+.card:hover .deleteBtn {
+  opacity: 1;
+  transform: scale(1.05);   /* ← subtle hover bump */
+}
+
+.deleteBtn:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.deleteBtnConfirm {
+  opacity: 1 !important;
+  background: var(--danger);
+  color: #fff;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
