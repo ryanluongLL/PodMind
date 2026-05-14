@@ -22,7 +22,7 @@
   flex-direction: column;
   overflow: hidden;
   animation: slideDown 0.2s ease-out;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
 }
 
 .header {
@@ -137,6 +137,7 @@
 .resultHighlighted {
   background: var(--bg-card-hover);
 }
+
 
 .resultRow:disabled {
   opacity: 0.5;

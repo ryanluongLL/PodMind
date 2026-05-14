@@ -26,7 +26,7 @@
 }
 
 .segmentActive {
-  background: rgba(29, 185, 84, 0.15);
+  background: rgba(255, 235, 187, 0.6);   /* --color-peach tint */
   color: var(--text);
   font-weight: 500;
   box-shadow: inset 3px 0 0 var(--accent);

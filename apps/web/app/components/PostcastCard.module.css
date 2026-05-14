@@ -2,22 +2,24 @@
   display: block;
   padding: 1rem;
   background: var(--bg-card);
-  border-radius: 0.75rem;
-  transition: background 0.2s;
+  border-radius: 0.875rem;
+  border: 1px solid var(--border);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   position: relative;
 }
 
 .card:hover {
-  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
 }
 
 .coverWrapper {
   aspect-ratio: 1 / 1;
-  border-radius: 0.5rem;
+  border-radius: 0.625rem;
   overflow: hidden;
-  background: var(--border);
-  margin-bottom: 1rem;
-  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.5);
+  background: var(--gradient-soft);
+  margin-bottom: 0.875rem;
 }
 
 .cover {
@@ -28,7 +30,7 @@
 }
 
 .card:hover .cover {
-  transform: scale(1.05);
+  transform: scale(1.04);
 }
 
 .coverFallback {
@@ -38,55 +40,57 @@
   align-items: center;
   justify-content: center;
   font-size: 2rem;
-  color: var(--text-faint);
 }
 
 .title {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9375rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text);
 }
 
 .episodeCount {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--text-dim);
   margin-top: 0.25rem;
 }
 
 .deleteBtn {
   position: absolute;
-  top: 5%;
-  right: 5%;
+  top: 0.75rem;
+  right: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;          /* ← slightly larger base size */
+  width: 2.25rem;
   height: 2.25rem;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;             /* ← brighter so it stands out */
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-dim);
   border-radius: 9999px;
   opacity: 0;
-  transition: opacity 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
   z-index: 1;
   backdrop-filter: blur(4px);
+  border: 1px solid var(--border);
 }
 
 .card:hover .deleteBtn {
   opacity: 1;
-  transform: scale(1.05);   /* ← subtle hover bump */
 }
 
 .deleteBtn:hover {
   background: var(--danger);
   color: #fff;
+  border-color: var(--danger);
 }
 
 .deleteBtnConfirm {
   opacity: 1 !important;
   background: var(--danger);
   color: #fff;
+  border-color: var(--danger);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
