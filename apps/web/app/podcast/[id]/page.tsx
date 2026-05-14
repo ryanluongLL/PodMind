@@ -48,7 +48,7 @@ export default function PodcastDetailPage({ params }: { params: Promise<{ id: st
 
             <div className={styles.episodeList}>
                 {episodes.map((ep) => (
-                    <EpisodeRow key={ep.id} episode={ep} />
+                    <EpisodeRow key={ep.id} episode={ep} podcastName={podcast.name} />
                 ))}
             </div>
         </main>

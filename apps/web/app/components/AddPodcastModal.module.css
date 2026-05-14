@@ -161,6 +161,7 @@
   font-size: 0.9375rem;
   font-weight: 600;
   margin-bottom: 0.125rem;
+  color: var(--text); 
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

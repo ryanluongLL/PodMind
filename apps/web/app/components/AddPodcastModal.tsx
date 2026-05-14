@@ -40,7 +40,7 @@ export function AddPodcastModal({ onClose }: { onClose: () => void }) {
 
     ///add the selected podcast to the user's library by feedUrl
     const addMutation = useMutation({
-        mutationFn: (feedUrl: string) => addPodcast(feedUrl),
+        mutationFn: (podcast: ItunesPodcast) => addPodcast(podcast.feedUrl, podcast.artworkUrl600),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['podcasts'] })
             onClose()
@@ -71,7 +71,7 @@ export function AddPodcastModal({ onClose }: { onClose: () => void }) {
         } else if (e.key === 'Enter') {
             e.preventDefault()
             const podcast = displayList[highlighted]
-            if(podcast) addMutation.mutate(podcast.feedUrl)
+            if(podcast) addMutation.mutate(podcast)
         } else if (e.key === 'Escape') {
             onClose()
         }
@@ -129,7 +129,7 @@ export function AddPodcastModal({ onClose }: { onClose: () => void }) {
                             podcast={podcast}
                             isHighlighted={i === highlighted}
                             isAdding={addMutation.isPending}
-                            onClick={() => addMutation.mutate(podcast.feedUrl)}
+                            onClick={() => addMutation.mutate(podcast)}
                             onHover={() => setHighlighted(i)}
                         />
                     ))}

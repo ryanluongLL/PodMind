@@ -1,6 +1,6 @@
 'use client'
-import { createContext, useContext, useState, useRef, useCallback, type ReactNode, type RefObject } from 'react'
-
+import { createContext, useContext, useState, useRef, useCallback, type ReactNode, type RefObject, useEffect } from 'react'
+import {api} from './api'
 interface Segment{
     start: number
     end: number
@@ -59,17 +59,56 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setCurrentTime(time)
     }, [])
 
+
+    const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null)
+
+    ///when a new episode is played, fetch its cached audio with auth and create a blob URL the <audio> element can use.
+    ///The dynamic ad-injected RSS URL would cause sync drift, so we always serve the same file Whisper transcribed
+
+    useEffect(() => {
+        if (!nowPlaying) {
+            setAudioBlobUrl(null)
+            return
+        }
+        let cancelled = false
+        let createdUrl: string | null = null
+
+        const loadAudio = async () => {
+            try {
+                const res = await api.get(`/audio/${nowPlaying.episodeId}`, {
+                    responseType: 'blob',
+                })
+                if (cancelled) return
+                createdUrl = URL.createObjectURL(res.data)
+                setAudioBlobUrl(createdUrl)
+            } catch (err) {
+                console.error('Failed to load cached audio, falling back to original URL', err)
+                ///fallback to the dynamic URL - sync may drift but at least playback works
+                if (!cancelled) setAudioBlobUrl(nowPlaying.audioUrl)
+            }
+        }
+
+        loadAudio()
+
+        return () => {
+            cancelled = true
+            if (createdUrl) {
+                URL.revokeObjectURL(createdUrl)
+            }
+        }
+    }, [nowPlaying])
+
     return (
         <PlayerContext.Provider value={{ nowPlaying, isPlaying, currentTime, play, togglePlayPause, seekTo, audioRef }}>
             {children}
             <audio
             ref={audioRef}
-            src={nowPlaying?.audioUrl}
+            src={audioBlobUrl ?? undefined}
             onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
             onEnded={() => setIsPlaying(false)}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
-            autoPlay={!!nowPlaying}
+            autoPlay={!!audioBlobUrl}
             />
     </PlayerContext.Provider>
     )

@@ -11,6 +11,13 @@ ffmpeg.setFfmpegPath(ffmpegInstaller.path)
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+const AUDIO_STORAGE_DIR = path.join(process.cwd(), 'audio_cache')
+
+// Make sure the directory exists on startup
+if (!fs.existsSync(AUDIO_STORAGE_DIR)) {
+  fs.mkdirSync(AUDIO_STORAGE_DIR, { recursive: true })
+}
+
 function compressAudio(inputPath: string, outputPath: string): Promise<void> {
     return new Promise((resolve, reject) => {
         ffmpeg(inputPath)
@@ -40,7 +47,7 @@ const worker = new Worker(
 
         // Check if transcript already exists — skip Whisper to save API costs
         const existing = await pool.query(
-            `SELECT full_text FROM transcripts WHERE episode_id = $1 AND full_text != ''`,
+            `SELECT full_text, segments FROM transcripts WHERE episode_id = $1 AND full_text != ''`,
             [episodeId]
         )
 
@@ -56,7 +63,7 @@ const worker = new Worker(
             const arrayBuffer = await response.arrayBuffer()
             const buffer = Buffer.from(arrayBuffer)
             const rawPath = path.join(os.tmpdir(), `${episodeId}-raw.mp3`)
-            const compressedPath = path.join(os.tmpdir(), `${episodeId}.mp3`)
+            const compressedPath = path.join(AUDIO_STORAGE_DIR, `${episodeId}.mp3`)
             fs.writeFileSync(rawPath, buffer)
             console.log(`[worker] audio downloaded, size: ${(buffer.length / 1024 / 1024).toFixed(1)} MB`)
 
@@ -71,7 +78,7 @@ const worker = new Worker(
                 model: 'whisper-1',
                 response_format: 'verbose_json',
             })
-            fs.unlinkSync(compressedPath)
+            // fs.unlinkSync(compressedPath)
             console.log(`[worker] transcription done, length: ${transcription.text.length} chars`)
 
             transcriptText = transcription.text

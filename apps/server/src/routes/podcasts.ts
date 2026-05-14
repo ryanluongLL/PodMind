@@ -8,7 +8,7 @@ const router = Router()
 
 ///POST /podcast - scrape and save a new podcast, scoped to the current uesr
 router.post('/', async (req, res) => {
-    const { url } = req.body as { url: string }
+    const { url, iconUrl } = req.body as { url: string; iconUrl?: string }
     const userId = req.userId!
 
     if (!url) {
@@ -31,17 +31,19 @@ router.post('/', async (req, res) => {
         } else {
             parsed = await scrapeRSS(url);
         }
+        
+        const finalIconUrl=iconUrl ?? parsed.iconUrl
 
         const { rows } = await pool.query(
             `INSERT INTO podcasts (name, podbean_url, rss_url, icon_url, user_id)
             VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (rss_url) DO UPDATE SET name = EXCLUDED.name
+            ON CONFLICT (rss_url) DO UPDATE SET name = EXCLUDED.name, icon_url = EXCLUDED.icon_url
             RETURNING *`,
             [
                 parsed.name,
                 isPodBean ? url : null,
                 isPodBean ? null : url,
-                parsed.iconUrl,
+                finalIconUrl,
                 userId,
             ]
         )

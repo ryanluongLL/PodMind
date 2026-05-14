@@ -131,3 +131,41 @@
 .favoriteBtn:hover::after {
   opacity: 1;
 }
+
+.rowWrapper {
+  border-radius: 0.5rem;
+  transition: background 0.15s;
+}
+
+.rowExpanded {
+  background: var(--bg-card);
+}
+
+.chevronBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: transparent;
+  /* color: var(--text-dim); */
+  color: white;
+  border-radius: 0.375rem;
+  transition: color 0.15s, transform 0.2s;
+  flex-shrink: 0;
+  margin-right: 0.25rem;
+}
+
+.chevronBtn:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.chevronBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
