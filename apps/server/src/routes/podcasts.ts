@@ -135,4 +135,23 @@ router.post('/:id/transcribe', async (req, res) => {
   res.json({ message: 'Transcription job enqueued', episodeId: episode.id })
 })
 
+///delete /podcasts/:id
+///verifies ownership, then deltes the podcast. Foregin key CASCADE handles related episodes, transcripts, and embeddings automatically
+router.delete('/:id', async (req, res) => {
+    const { id } = req.params
+    const userId = req.userId!
+
+    const { rowCount } = await pool.query(
+        `DELETE FROM podcasts WHERE id = $1 AND user_id = $2`,
+        [id, userId]
+    )
+
+    if (rowCount === 0) {
+        res.status(404).json({ error: 'Podcast not found' })
+        return
+    }
+    res.json({message: 'Podcast deleted'})
+})
+
+
 export default router

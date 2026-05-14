@@ -136,3 +136,28 @@ export async function discoverPodcasts(query: string): Promise<ItunesPodcast[]>{
     return data.results.filter((r) => r.feedUrl)
 
 }
+
+export async function deletePodcast(id: string): Promise<void>{
+    await api.delete(`/podcasts/${id}`)
+}
+
+export interface UserProfile {
+  user_id: string
+  native_language: string
+  english_level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
+  daily_goal_minutes: number
+  current_streak: number
+  last_active_date: string | null
+  onboarded: boolean
+  created_at: string
+}
+
+export async function getProfile(): Promise<UserProfile> {
+  const { data } = await api.get<UserProfile>('/profile')
+  return data
+}
+
+export async function updateProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
+  const { data } = await api.patch<UserProfile>('/profile', updates)
+  return data
+}
