@@ -3,13 +3,14 @@
   gap: 1rem;
   padding: 1.25rem;
   background: var(--bg-card);
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: 0.75rem;
   transition: border-color 0.15s;
 }
 
 .row:hover {
-  border-color: var(--border);
+  border-color: var(--border-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .rankBadge {
@@ -73,6 +74,7 @@
   flex-direction: column;
   align-items: flex-end;
   flex-shrink: 0;
+  color: var(--accent);
 }
 
 .similarityPct {
@@ -96,10 +98,10 @@
 }
 
 .highlight {
-  background: rgba(29, 185, 84, 0.25);
+  background: rgba(255, 235, 187, 0.8);  /* --color-peach tint */
   color: var(--text);
-  padding: 0 0.125rem;
   border-radius: 0.125rem;
+  padding: 0 0.125rem;
   font-weight: 500;
 }
 

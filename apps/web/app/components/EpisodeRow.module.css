@@ -8,7 +8,7 @@
 }
 
 .row:hover {
-  background: var(--bg-card);
+  background: var(--bg-card-hover);
 }
 
 .iconWrapper {
@@ -97,7 +97,7 @@
 
 .favoriteActive:hover {
   color: var(--accent-hover);
-  background: transparent;
+  background: rgba(255, 140, 90, 0.1);
 }
 
 .transcribeBtn:disabled {
@@ -115,8 +115,8 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 0.25rem 0.5rem;
-  background: var(--text);
-  color: #000;
+  background: var(--text);       /* dark background */
+  color: var(--bg);              /* ← was #000, now uses --bg (light cream) */
   font-size: 0.75rem;
   font-weight: 500;
   border-radius: 0.25rem;
@@ -149,7 +149,7 @@
   height: 1.75rem;
   background: transparent;
   /* color: var(--text-dim); */
-  color: white;
+  color: var(--text-dim);
   border-radius: 0.375rem;
   transition: color 0.15s, transform 0.2s;
   flex-shrink: 0;

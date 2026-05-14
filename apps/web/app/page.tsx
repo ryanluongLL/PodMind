@@ -1,15 +1,23 @@
 'use client'
-
+import dynamic from 'next/dynamic'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, Search, Compass } from 'lucide-react'
-import { UserButton } from '@clerk/nextjs'
 import { getPodcasts, getProfile } from '@/lib/api'
 import { PodcastCard } from './components/PostcastCard'
 import { AddPodcastModal } from './components/AddPodcastModal'
-import { OnboardingModal } from './components/OnboardingModal'
 import styles from './page.module.css'
+
+const UserButton = dynamic(
+  () => import('@clerk/nextjs').then((mod) => mod.UserButton),
+  { ssr: false }
+)
+
+const OnboardingModal = dynamic(
+  () => import('./components/OnboardingModal').then((mod) => mod.OnboardingModal),
+  { ssr: false }
+)
 
 export default function Home() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -28,14 +36,14 @@ export default function Home() {
   // Show onboarding only on first sign-in (when onboarded flag is false)
   const showOnboarding = profile && !profile.onboarded
 
-  return (
-    <main className={styles.main}>
-      <header className={styles.header}>
+ return (
+  <main className={styles.main}>
+    <div className={styles.hero}>
+      <div className={styles.heroInner}>
         <div className={styles.titleGroup}>
           <h1>PodMind</h1>
           <p className={styles.tagline}>Master English with real podcasts.</p>
         </div>
-
         <div className={styles.actions}>
           <Link href="/search" className={styles.searchBtn}>
             <Search size={16} />
@@ -51,8 +59,10 @@ export default function Home() {
           </button>
           <UserButton />
         </div>
-      </header>
+      </div>
+    </div>
 
+    <div className={styles.content}>
       {isLoading ? (
         <div className={styles.loading}>Loading...</div>
       ) : podcasts && podcasts.length > 0 ? (
@@ -66,9 +76,10 @@ export default function Home() {
           <p className={styles.emptyText}>No podcasts added yet</p>
         </div>
       )}
+    </div>
 
-      {isAddModalOpen && <AddPodcastModal onClose={() => setIsAddModalOpen(false)} />}
-      {showOnboarding && <OnboardingModal />}
-    </main>
-  )
+    {isAddModalOpen && <AddPodcastModal onClose={() => setIsAddModalOpen(false)} />}
+    {showOnboarding && <OnboardingModal />}
+  </main>
+)
 }
