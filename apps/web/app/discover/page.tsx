@@ -38,7 +38,7 @@ export default function DiscoverPage() {
         setSummaryLoading(true)
         setSummaries([])
         try {
-            const { data } = await api.post('/discover/summrize', {
+            const { data } = await api.post('/discover/summarize', {
                 query,
                 podcasts: results.map(p => ({
                     name: p.trackName,
@@ -70,7 +70,7 @@ export default function DiscoverPage() {
     }
 
     const addMutation = useMutation({
-        mutationFn: (feedUrl: string) => addPodcast(feedUrl),
+        mutationFn: (podcast: ItunesPodcast) => addPodcast(podcast.feedUrl, podcast.artworkUrl600),
         onSuccess: () => {
             queryClient.invalidateQueries({queryKey: ['podcasts']})
         }
@@ -166,7 +166,7 @@ export default function DiscoverPage() {
                                     </div>
 
                                     <button
-                                        onClick={() => addMutation.mutate(podcast.feedUrl)}
+                                        onClick={() => addMutation.mutate(podcast)}
                                         disabled={addMutation.isPending}
                                         className={styles.addBtn}
                                     >

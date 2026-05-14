@@ -1,0 +1,44 @@
+.viewer{
+    padding: 1rem 1.5rem 1.5rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border);
+    margin-top: 0.5rem;
+    animation: slideDown 0.2s ease-out;
+}
+
+.segment {
+  text-align: left;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+}
+
+.segment:hover {
+  background: var(--bg-card-hover);
+  color: var(--text);
+}
+
+.segmentActive {
+  background: rgba(29, 185, 84, 0.15);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

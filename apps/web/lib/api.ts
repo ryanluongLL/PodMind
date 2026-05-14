@@ -26,7 +26,7 @@ export interface Episode{
     rating: number | null
     hashtags: string[]
     transcript_status: 'pending' | 'processing' | 'done' | 'failed' | null
-    transcrip_segments: { start: number; end: number; text:string}[]|null
+    transcript_segments: { start: number; end: number; text: string }[] | null
 }
 
 export async function getPodcasts(): Promise<Podcast[]>{
@@ -34,8 +34,8 @@ export async function getPodcasts(): Promise<Podcast[]>{
     return data
 }
 
-export async function addPodcast(url: string): Promise<{ podcast: Podcast; episodeCount: number }>{
-    const { data } = await api.post('/podcasts', { url })
+export async function addPodcast(url: string, iconUrl?: string): Promise<{ podcast: Podcast; episodeCount: number }>{
+    const { data } = await api.post('/podcasts', { url, iconUrl })
     return data
 }
 
