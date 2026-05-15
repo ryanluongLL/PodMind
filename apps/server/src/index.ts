@@ -11,6 +11,8 @@ import { clerkAuth, requireAuth } from './middleware/auth.js'
 import discoverRouter from './routes/discover.js'
 import audioRouter from './routes/audio.js'
 import profileRouter from './routes/profile.js'
+import translateRouter from './routes/translate.js'
+
 
 const app = express()
 app.use(cors({ origin: 'http://localhost:3000' }))
@@ -31,6 +33,7 @@ app.use('/episodes', requireAuth, episodeRouter)
 app.use('/discover', discoverRouter)
 app.use('/audio', requireAuth, audioRouter)
 app.use('/profile', requireAuth, profileRouter)
+app.use('/translate', requireAuth, translateRouter)
 
 app.listen(process.env.PORT || 3001, () => {
   console.log(`Server running on port ${process.env.PORT || 3001}`)
