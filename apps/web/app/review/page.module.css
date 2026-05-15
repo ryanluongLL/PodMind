@@ -1,0 +1,292 @@
+.main {
+  min-height: 100vh;
+  padding: 2rem;
+  max-width: 40rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  color: var(--text-muted);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.backBtn:hover {
+  color: var(--text);
+}
+
+.progress {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--gradient);
+  border-radius: 9999px;
+  transition: width 0.4s ease-out;
+}
+
+.progressLabel {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cardArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  perspective: 1000px;   /* ← needed for 3D flip */
+}
+
+.card {
+  width: 100%;
+  height: 22rem;        /* ← fixed height so children can be absolute */
+  cursor: pointer;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease;
+  border-radius: 1.25rem;
+}
+
+.card:hover:not(.cardFlipped) {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.cardFlipped {
+  transform: rotateY(180deg);
+  cursor: default;
+}
+
+.cardFront,
+.cardBack {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2.5rem;
+  border-radius: 1.25rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  backface-visibility: hidden;   /* ← hides the side facing away */
+  -webkit-backface-visibility: hidden;
+  gap: 1rem;
+}
+
+.cardBack {
+  transform: rotateY(180deg);   /* ← starts facing away */
+  background: linear-gradient(135deg, rgba(224,255,205,0.3) 0%, rgba(255,202,176,0.3) 100%);
+  border-color: var(--border-hover);
+}
+
+.cardHint {
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.cardWord {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.cardTap {
+  font-size: 0.875rem;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.cardTranslation {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.cardContext {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.6;
+  max-width: 28rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 235, 187, 0.4);
+  border-radius: 0.5rem;
+  border-left: 3px solid var(--color-peach);
+}
+
+/* Rating buttons */
+.ratingSection {
+  width: 100%;
+  animation: fadeUp 0.2s ease-out;
+}
+
+.ratingLabel {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.ratingBtns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.ratingBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.875rem 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.ratingBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.ratingBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ratingEmoji {
+  font-size: 1.5rem;
+}
+
+.ratingName {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ratingInterval {
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+}
+
+.ratingAgain { border-color: #fca5a5; }
+.ratingAgain:hover { background: #fef2f2; border-color: #f87171; }
+
+.ratingHard { border-color: #fdba74; }
+.ratingHard:hover { background: #fff7ed; border-color: #fb923c; }
+
+.ratingGood { border-color: #86efac; }
+.ratingGood:hover { background: #f0fdf4; border-color: #4ade80; }
+
+.ratingEasy { border-color: #93c5fd; }
+.ratingEasy:hover { background: #eff6ff; border-color: #60a5fa; }
+
+.flipHint {
+  font-size: 0.875rem;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* Session complete */
+.complete {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1rem;
+}
+
+.completeIcon {
+  color: var(--accent);
+}
+
+.completeTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.completeSubtitle {
+  color: var(--text-muted);
+  font-size: 1rem;
+  max-width: 24rem;
+}
+
+.completeActions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.primaryBtn {
+  padding: 0.75rem 1.5rem;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 9999px;
+  font-size: 0.9375rem;
+  transition: background 0.15s;
+}
+
+.primaryBtn:hover {
+  background: var(--accent-hover);
+}
+
+.secondaryBtn {
+  padding: 0.75rem 1.5rem;
+  background: var(--border);
+  color: var(--text);
+  font-weight: 600;
+  border-radius: 9999px;
+  font-size: 0.9375rem;
+  transition: background 0.15s;
+}
+
+.secondaryBtn:hover {
+  background: var(--border-hover);
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
