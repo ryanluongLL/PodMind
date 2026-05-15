@@ -23,6 +23,7 @@ export async function scrapePodbean(podbeanUrl: string): Promise<ParsedPodcast> 
       els.slice(0, 20).map((el) => ({
         title: el.querySelector('.episode-title, h3')?.textContent?.trim() ?? 'Untitled',
         episodeUrl: (el.querySelector('a') as any)?.href ?? '',
+        audioUrl: null,
         iconUrl: (el.querySelector('img') as any)?.src ?? null,
         publishedAt: el.querySelector('.date, .episode-date')?.textContent?.trim()
           ? new Date(el.querySelector('.date, .episode-date')!.textContent!.trim())
