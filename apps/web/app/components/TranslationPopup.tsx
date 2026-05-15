@@ -40,11 +40,20 @@ export function TranslationPopup({ word, position, result, isLoading, onSave, on
     }
   }, [onClose])
 
-  // Keep popup within viewport bounds
-  const style = {
-    top: Math.min(position.y + 12, window.innerHeight - 300),
-    left: Math.min(Math.max(position.x - 100, 8), window.innerWidth - 320),
-  }
+ // Smart positioning — show above click if in bottom half of screen
+  const popupHeight = 380
+  const popupWidth = 288
+
+  const top = position.y + popupHeight > window.innerHeight
+    ? Math.max(8, position.y - popupHeight)  // show above
+    : position.y + 12                         // show below
+
+  const left = Math.min(
+    Math.max(position.x - 100, 8),
+    window.innerWidth - popupWidth - 8
+  )
+
+const style = { top, left }
 
   return (
     <div ref={ref} className={styles.popup} style={style}>

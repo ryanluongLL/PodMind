@@ -2,6 +2,8 @@
   position: fixed;
   z-index: 200;
   width: 18rem;
+  max-height: 80vh;         /* ← never taller than 80% of screen */
+  overflow-y: auto;         /* ← scroll internally */
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
@@ -97,8 +99,8 @@
   gap: 0.375rem;
   width: 100%;
   margin-top: 0.875rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--gradient-soft);
+  padding: 0.625rem 0.75rem;
+  background: var(--bg-card-hover);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   font-size: 0.8125rem;

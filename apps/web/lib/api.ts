@@ -219,3 +219,13 @@ export async function translateWord(
   })
   return data
 }
+
+export async function getDueWords(): Promise<VocabularyWord[]> {
+  const { data } = await api.get<VocabularyWord[]>('/vocabulary/due')
+  return data
+}
+
+export async function reviewWord(id: string, rating: 1 | 2 | 3 | 4): Promise<VocabularyWord> {
+  const { data } = await api.post<VocabularyWord>(`/vocabulary/${id}/review`, { rating })
+  return data
+}
