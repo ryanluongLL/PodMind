@@ -18,6 +18,7 @@
   line-height: 1.65;
   transition: background 0.15s, color 0.15s;
   cursor: pointer;
+  user-select: none;   /* ← prevents accidental text selection while seeking */
 }
 
 .segment:hover {
@@ -41,4 +42,22 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.hint {
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+  padding: 0 0.75rem 0.5rem;
+  font-style: italic;
+}
+
+.word {
+  cursor: pointer;
+  border-radius: 0.2rem;
+  padding: 0 0.05rem;
+  transition: background 0.1s;
+}
+
+.word:hover {
+  background: var(--color-peach);
 }

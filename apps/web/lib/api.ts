@@ -161,3 +161,26 @@ export async function updateProfile(updates: Partial<UserProfile>): Promise<User
   const { data } = await api.patch<UserProfile>('/profile', updates)
   return data
 }
+
+export interface TranslationResult{
+    word: string
+    translation: string
+    partOfSpeech: string
+    definition: string
+    usageNote: string
+    exampleSentence: string
+}
+
+///translates a word with full context- definition, usage, and example sentence
+export async function translateWord(
+    word: string,
+    targetLang: string,
+    context: string
+): Promise<TranslationResult>{
+    const { data } = await api.post<TranslationResult>('/translate', {
+        word,
+        targetLang,
+        context,
+    })
+    return data
+}
