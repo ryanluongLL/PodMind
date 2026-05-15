@@ -8,6 +8,7 @@ import { getPodcasts, getProfile } from '@/lib/api'
 import { PodcastCard } from './components/PostcastCard'
 import { AddPodcastModal } from './components/AddPodcastModal'
 import styles from './page.module.css'
+import { BookMarked } from 'lucide-react'
 
 const UserButton = dynamic(
   () => import('@clerk/nextjs').then((mod) => mod.UserButton),
@@ -49,10 +50,17 @@ export default function Home() {
             <Search size={16} />
             <span>Search</span>
           </Link>
+           
           <Link href="/discover" className={styles.searchBtn}>
             <Compass size={16} />
             <span>Discover</span>
           </Link>
+
+           <Link href="/vocabulary" className={styles.searchBtn}>
+             <BookMarked size={16} />
+             <span>Vocabulary</span>
+           </Link> 
+
           <button onClick={() => setIsAddModalOpen(true)} className={styles.addBtn}>
             <Plus size={16} />
             <span>Add podcast</span>
