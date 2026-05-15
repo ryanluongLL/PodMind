@@ -161,3 +161,61 @@ export async function updateProfile(updates: Partial<UserProfile>): Promise<User
   const { data } = await api.patch<UserProfile>('/profile', updates)
   return data
 }
+
+export interface VocabularyWord {
+  id: string
+  user_id: string
+  word: string
+  translation: string
+  context_sentence: string
+  episode_id: string
+  timestamp_seconds: number
+  ease_factor: number
+  interval_days: number
+  next_review_date: string
+  review_count: number
+  created_at: string
+}
+
+export async function saveWord(data: {
+    word: string
+    translation: string
+    contextSentence: string
+    episodeId: string
+    timestampSeconds: number
+}): Promise<VocabularyWord>{
+    const { data: result } = await api.post<VocabularyWord>('/vocabulary', data)
+    return result
+}
+
+export async function getVocabulary(): Promise<VocabularyWord[]>{
+    const { data } = await api.get<VocabularyWord[]>('/vocabulary')
+    return data
+}
+
+export async function deleteWord(id: string): Promise<void>{
+    await api.delete(`/vocabulary/${id}`)
+}
+
+export interface TranslationResult {
+  word: string
+  translation: string
+  partOfSpeech: string
+  definition: string
+  usageNote: string
+  exampleSentence: string
+}
+
+// Translates a word with full context — definition, usage, and example sentence
+export async function translateWord(
+  word: string,
+  targetLang: string,
+  context: string
+): Promise<TranslationResult> {
+  const { data } = await api.post<TranslationResult>('/translate', {
+    word,
+    targetLang,
+    context,
+  })
+  return data
+}

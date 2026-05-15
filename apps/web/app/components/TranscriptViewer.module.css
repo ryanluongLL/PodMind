@@ -32,6 +32,25 @@
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.hint {
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+  padding: 0 0.75rem 0.5rem;
+  font-style: italic;
+}
+
+.word {
+  cursor: pointer;
+  border-radius: 0.2rem;
+  padding: 0 0.05rem;
+  transition: background 0.1s;
+  display: inline;
+}
+
+.word:hover {
+  background: var(--color-peach);
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
