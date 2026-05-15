@@ -12,6 +12,7 @@ import discoverRouter from './routes/discover.js'
 import audioRouter from './routes/audio.js'
 import profileRouter from './routes/profile.js'
 import translateRouter from './routes/translate.js'
+import vocabularyRouter from './routes/vocabulary.js'
 
 
 const app = express()
@@ -34,6 +35,7 @@ app.use('/discover', discoverRouter)
 app.use('/audio', requireAuth, audioRouter)
 app.use('/profile', requireAuth, profileRouter)
 app.use('/translate', requireAuth, translateRouter)
+app.use('/vocabulary', requireAuth, vocabularyRouter)
 
 app.listen(process.env.PORT || 3001, () => {
   console.log(`Server running on port ${process.env.PORT || 3001}`)
