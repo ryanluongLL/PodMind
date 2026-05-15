@@ -23,7 +23,7 @@ function compressAudio(inputPath: string, outputPath: string): Promise<void> {
         ffmpeg(inputPath)
             .audioChannels(1)
             .audioFrequency(16000)
-            .audioBitrate('32k')
+            .audioBitrate('16k')
             .format('mp3')
             .on('end', () => resolve())
             .on('error', (err) => reject(err))
@@ -70,6 +70,10 @@ const worker = new Worker(
             await compressAudio(rawPath, compressedPath)
             const compressedSize = fs.statSync(compressedPath).size
             console.log(`[worker] compressed size: ${(compressedSize / 1024 / 1024).toFixed(1)} MB`)
+            if (compressedSize > 25 * 1024 * 1024) {
+                fs.unlinkSync(rawPath)
+                throw new Error(`Episode too long to transcribe: compressed size ${(compressedSize / 1024 / 1024).toFixed(1)} MB exceeds 25 MB limit`)
+            }
             fs.unlinkSync(rawPath)
 
             ///verbose_json gives us word-level timestamps for the synchronized player
