@@ -30,7 +30,6 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Deploy to Vercel
-        working-directory: apps/web
         run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
