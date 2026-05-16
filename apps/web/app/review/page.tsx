@@ -14,18 +14,22 @@ export default function ReviewPage() {
   const [sessionDone, setSessionDone] = useState(false)
   const [reviewed, setReviewed] = useState(0)
   const [sessionTotal, setSessionTotal] = useState(0)
-  const sessionTotalRef = useRef(0)  // ← ref for use inside callbacks
+  const sessionTotalRef = useRef(0)
 
   const { data: dueWords, isLoading } = useQuery({
     queryKey: ['vocabulary-due'],
     queryFn: getDueWords,
+    // Don't refetch during the session — stale data is fine here
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   })
 
-  // Set both state (for display) and ref (for callbacks) once when words load
   useEffect(() => {
+    console.log('dueWords changed:', dueWords?.length, 'ref:', sessionTotalRef.current)
     if (dueWords && dueWords.length > 0 && sessionTotalRef.current === 0) {
       sessionTotalRef.current = dueWords.length
       setSessionTotal(dueWords.length)
+      console.log('Set sessionTotal to:', dueWords.length)
     }
   }, [dueWords])
 
@@ -34,19 +38,23 @@ export default function ReviewPage() {
       reviewWord(id, rating),
     onSuccess: () => {
       const nextIndex = currentIndex + 1
-      // Use ref here — always has the correct value regardless of render cycle
       const total = sessionTotalRef.current
+      console.log('onSuccess - nextIndex:', nextIndex, 'total:', total)
 
       setTimeout(() => {
         if (nextIndex >= total) {
           setSessionDone(true)
+          setReviewed((r) => r + 1)
+          // Only invalidate when session is fully done
+          queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
+          queryClient.invalidateQueries({ queryKey: ['vocabulary-due'] })
         } else {
           setCurrentIndex(nextIndex)
           setFlipped(false)
           setReviewed((r) => r + 1)
+          // Don't invalidate vocabulary-due mid-session
+          queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
         }
-        queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
-        queryClient.invalidateQueries({ queryKey: ['vocabulary-due'] })
       }, 600)
     },
   })
@@ -70,7 +78,7 @@ export default function ReviewPage() {
           <CheckCircle size={48} className={styles.completeIcon} />
           <h2 className={styles.completeTitle}>Session complete!</h2>
           <p className={styles.completeSubtitle}>
-            You reviewed {reviewed + 1} word{reviewed + 1 === 1 ? '' : 's'} today. Great work!
+            You reviewed {reviewed} word{reviewed === 1 ? '' : 's'} today. Great work!
           </p>
           <div className={styles.completeActions}>
             <Link href="/vocabulary" className={styles.primaryBtn}>View vocabulary</Link>
@@ -87,7 +95,9 @@ export default function ReviewPage() {
         <div className={styles.complete}>
           <CheckCircle size={48} className={styles.completeIcon} />
           <h2 className={styles.completeTitle}>Nothing to review!</h2>
-          <p className={styles.completeSubtitle}>All your words are up to date. Come back tomorrow!</p>
+          <p className={styles.completeSubtitle}>
+            All your words are up to date. Come back tomorrow!
+          </p>
           <div className={styles.completeActions}>
             <Link href="/vocabulary" className={styles.primaryBtn}>View vocabulary</Link>
             <Link href="/" className={styles.secondaryBtn}>Back to home</Link>
@@ -99,7 +109,6 @@ export default function ReviewPage() {
 
   const current = dueWords?.[currentIndex]
   if (!current) {
-    // Safety fallback
     return (
       <main className={styles.main}>
         <div className={styles.complete}>
@@ -131,7 +140,7 @@ export default function ReviewPage() {
           />
         </div>
         <span className={styles.progressLabel}>
-          {currentIndex}/{sessionTotal}
+          {currentIndex + 1}/{sessionTotal}
         </span>
       </div>
 
@@ -184,7 +193,9 @@ export default function ReviewPage() {
               >
                 <span className={styles.ratingEmoji}>😊</span>
                 <span className={styles.ratingName}>Good</span>
-                <span className={styles.ratingInterval}>{Math.ceil(current.interval_days * current.ease_factor)}d</span>
+                <span className={styles.ratingInterval}>
+                  {Math.ceil(current.interval_days * current.ease_factor)}d
+                </span>
               </button>
               <button
                 onClick={() => handleRate(current, 4)}
@@ -193,7 +204,9 @@ export default function ReviewPage() {
               >
                 <span className={styles.ratingEmoji}>🎉</span>
                 <span className={styles.ratingName}>Easy</span>
-                <span className={styles.ratingInterval}>{Math.ceil(current.interval_days * current.ease_factor * 1.3)}d</span>
+                <span className={styles.ratingInterval}>
+                  {Math.ceil(current.interval_days * current.ease_factor * 1.3)}d
+                </span>
               </button>
             </div>
           </div>
