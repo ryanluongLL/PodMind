@@ -16,27 +16,35 @@ export default function ReviewPage() {
   const [flipped, setFlipped] = useState(false)
   const [sessionDone, setSessionDone] = useState(false)
   const [reviewed, setReviewed] = useState(0)
+  const [sessionTotal, setSessionTotal] = useState(0)  // ← fixed total for the session
 
   const { data: dueWords, isLoading } = useQuery({
     queryKey: ['vocabulary-due'],
     queryFn: getDueWords,
   })
 
+  // Set the session total once when words first load — never changes after that
+  if (dueWords && dueWords.length > 0 && sessionTotal === 0) {
+    setSessionTotal(dueWords.length)
+  }
+
   const reviewMutation = useMutation({
     mutationFn: ({ id, rating }: { id: string; rating: 1 | 2 | 3 | 4 }) =>
       reviewWord(id, rating),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
-      queryClient.invalidateQueries({ queryKey: ['vocabulary-due'] })
+      const nextIndex = currentIndex + 1
 
-      const total = dueWords?.length ?? 0
-      if (currentIndex + 1 >= total) {
-        setSessionDone(true)
-      } else {
-        setCurrentIndex((i) => i + 1)
-        setFlipped(false)
-        setReviewed((r) => r + 1)
-      }
+      setTimeout(() => {
+        if (nextIndex >= sessionTotal) {
+          setSessionDone(true)
+        } else {
+          setCurrentIndex(nextIndex)
+          setFlipped(false)
+          setReviewed((r) => r + 1)
+        }
+        queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
+        queryClient.invalidateQueries({ queryKey: ['vocabulary-due'] })
+      }, 600)
     },
   })
 
@@ -52,29 +60,34 @@ export default function ReviewPage() {
     )
   }
 
-  const total = dueWords?.length ?? 0
-
-  // Session complete
-  if (sessionDone || total === 0) {
+  if (sessionDone) {
     return (
       <main className={styles.main}>
         <div className={styles.complete}>
           <CheckCircle size={48} className={styles.completeIcon} />
-          <h2 className={styles.completeTitle}>
-            {total === 0 ? 'Nothing to review!' : 'Session complete!'}
-          </h2>
+          <h2 className={styles.completeTitle}>Session complete!</h2>
           <p className={styles.completeSubtitle}>
-            {total === 0
-              ? 'All your words are up to date. Come back tomorrow!'
-              : `You reviewed ${reviewed + 1} word${reviewed + 1 === 1 ? '' : 's'} today. Great work!`}
+            You reviewed {reviewed + 1} word{reviewed + 1 === 1 ? '' : 's'} today. Great work!
           </p>
           <div className={styles.completeActions}>
-            <Link href="/vocabulary" className={styles.primaryBtn}>
-              View vocabulary
-            </Link>
-            <Link href="/" className={styles.secondaryBtn}>
-              Back to home
-            </Link>
+            <Link href="/vocabulary" className={styles.primaryBtn}>View vocabulary</Link>
+            <Link href="/" className={styles.secondaryBtn}>Back to home</Link>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (sessionTotal === 0) {
+    return (
+      <main className={styles.main}>
+        <div className={styles.complete}>
+          <CheckCircle size={48} className={styles.completeIcon} />
+          <h2 className={styles.completeTitle}>Nothing to review!</h2>
+          <p className={styles.completeSubtitle}>All your words are up to date. Come back tomorrow!</p>
+          <div className={styles.completeActions}>
+            <Link href="/vocabulary" className={styles.primaryBtn}>View vocabulary</Link>
+            <Link href="/" className={styles.secondaryBtn}>Back to home</Link>
           </div>
         </div>
       </main>
@@ -94,11 +107,11 @@ export default function ReviewPage() {
         <div className={styles.progress}>
           <div
             className={styles.progressFill}
-            style={{ width: `${(currentIndex / total) * 100}%` }}
+            style={{ width: `${(currentIndex / sessionTotal) * 100}%` }}
           />
         </div>
         <span className={styles.progressLabel}>
-          {currentIndex}/{total}
+          {currentIndex}/{sessionTotal}
         </span>
       </div>
 
