@@ -16,7 +16,13 @@ import vocabularyRouter from './routes/vocabulary.js'
 
 
 const app = express()
-app.use(cors({ origin: 'http://localhost:3000' }))
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    process.env.FRONTEND_URL ?? '',
+  ].filter(Boolean),
+  credentials: true,
+}))
 app.use(express.json())
 
 ///JWT verification on every request
