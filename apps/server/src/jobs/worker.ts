@@ -6,6 +6,7 @@ import path from 'path'
 import os from 'os'
 import ffmpeg from 'fluent-ffmpeg'
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
+import { Redis } from 'ioredis'
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path)
 
@@ -30,6 +31,10 @@ function compressAudio(inputPath: string, outputPath: string): Promise<void> {
             .save(outputPath)
     })
 }
+
+const connection = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
+  maxRetriesPerRequest: null,
+})
 
 const worker = new Worker(
     'transcription',

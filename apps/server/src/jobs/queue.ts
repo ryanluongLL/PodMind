@@ -1,19 +1,19 @@
-import { Queue } from "bullmq";
+import { Queue } from 'bullmq'
+import { Redis } from 'ioredis'
 
-export const transcriptionQueue = new Queue('transcription', {
-    connection: {
-        host: 'localhost',
-        port: 6379,
-    },
+const connection = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
+  maxRetriesPerRequest: null,
 })
 
-export async function enqueueTranscription(episodeId: string, audioUrl: string, userId:string) {
-    await transcriptionQueue.add(
-        'transcribe',
-        { episodeId, audioUrl, userId },
-        {
-            attempts: 3,
-            backoff: {type: 'exponential', delay:5000}
-        }
-    )
+export const transcriptionQueue = new Queue('transcription', { connection })
+
+export async function enqueueTranscription(episodeId: string, audioUrl: string, userId: string) {
+  await transcriptionQueue.add(
+    'transcribe',
+    { episodeId, audioUrl, userId },
+    {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5000 },
+    }
+  )
 }
