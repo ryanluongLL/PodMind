@@ -19,6 +19,7 @@ const app = express()
 app.use(cors({
   origin: [
     'http://localhost:3000',
+    'https://pod-mind-web.vercel.app',
     process.env.FRONTEND_URL ?? '',
   ].filter(Boolean),
   credentials: true,
