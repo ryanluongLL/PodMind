@@ -1,0 +1,34 @@
+name: Deploy Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/server/**"
+      - ".github/workflows/deploy-server.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        working-directory: apps/server
+        run: npm install
+
+      - name: Type check
+        working-directory: apps/server
+        run: npx tsc --noEmit
+
+      - name: Deploy to Railway
+        run: |
+          npm install -g @railway/cli
+          railway up --service ${{ secrets.RAILWAY_SERVER_SERVICE_ID }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
