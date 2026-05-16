@@ -1,43 +1,44 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CheckCircle } from 'lucide-react'
 import { getDueWords, reviewWord, type VocabularyWord } from '@/lib/api'
 import styles from './page.module.css'
 
-// Review page — implements SM-2 spaced repetition flashcards.
-// Words are shown one at a time. User rates their recall (1-4).
-// The algorithm schedules the next review based on the rating.
 export default function ReviewPage() {
   const queryClient = useQueryClient()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [sessionDone, setSessionDone] = useState(false)
   const [reviewed, setReviewed] = useState(0)
-  const [sessionTotal, setSessionTotal] = useState(0)  // ← fixed total for the session
+  const [sessionTotal, setSessionTotal] = useState(0)
+  const sessionTotalRef = useRef(0)  // ← ref for use inside callbacks
 
   const { data: dueWords, isLoading } = useQuery({
     queryKey: ['vocabulary-due'],
     queryFn: getDueWords,
   })
 
-  // Set the session total once when words first load — never changes after that
+  // Set both state (for display) and ref (for callbacks) once when words load
   useEffect(() => {
-  if (dueWords && dueWords.length > 0 && sessionTotal === 0) {
-    setSessionTotal(dueWords.length)
-  }
-}, [dueWords, sessionTotal])
+    if (dueWords && dueWords.length > 0 && sessionTotalRef.current === 0) {
+      sessionTotalRef.current = dueWords.length
+      setSessionTotal(dueWords.length)
+    }
+  }, [dueWords])
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, rating }: { id: string; rating: 1 | 2 | 3 | 4 }) =>
       reviewWord(id, rating),
     onSuccess: () => {
       const nextIndex = currentIndex + 1
+      // Use ref here — always has the correct value regardless of render cycle
+      const total = sessionTotalRef.current
 
       setTimeout(() => {
-        if (nextIndex >= sessionTotal) {
+        if (nextIndex >= total) {
           setSessionDone(true)
         } else {
           setCurrentIndex(nextIndex)
@@ -97,7 +98,24 @@ export default function ReviewPage() {
   }
 
   const current = dueWords?.[currentIndex]
-  if (!current) return null
+  if (!current) {
+    // Safety fallback
+    return (
+      <main className={styles.main}>
+        <div className={styles.complete}>
+          <CheckCircle size={48} className={styles.completeIcon} />
+          <h2 className={styles.completeTitle}>Session complete!</h2>
+          <p className={styles.completeSubtitle}>
+            You reviewed {reviewed} words today. Great work!
+          </p>
+          <div className={styles.completeActions}>
+            <Link href="/vocabulary" className={styles.primaryBtn}>View vocabulary</Link>
+            <Link href="/" className={styles.secondaryBtn}>Back to home</Link>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className={styles.main}>
@@ -118,7 +136,6 @@ export default function ReviewPage() {
       </div>
 
       <div className={styles.cardArea}>
-        {/* Flashcard */}
         <div
           className={`${styles.card} ${flipped ? styles.cardFlipped : ''}`}
           onClick={() => !flipped && setFlipped(true)}
@@ -138,7 +155,6 @@ export default function ReviewPage() {
           </div>
         </div>
 
-        {/* Rating buttons — only show after flip */}
         {flipped && (
           <div className={styles.ratingSection}>
             <p className={styles.ratingLabel}>How well did you remember?</p>
