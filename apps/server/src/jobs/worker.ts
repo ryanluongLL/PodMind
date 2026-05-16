@@ -129,7 +129,7 @@ const worker = new Worker(
     },
     
     {
-        connection: {host: 'localhost', port:6379}
+        connection
     }
 )
 
