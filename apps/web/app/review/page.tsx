@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CheckCircle } from 'lucide-react'
@@ -24,9 +24,11 @@ export default function ReviewPage() {
   })
 
   // Set the session total once when words first load — never changes after that
+  useEffect(() => {
   if (dueWords && dueWords.length > 0 && sessionTotal === 0) {
     setSessionTotal(dueWords.length)
   }
+}, [dueWords, sessionTotal])
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, rating }: { id: string; rating: 1 | 2 | 3 | 4 }) =>
