@@ -50,7 +50,7 @@ router.post('/summarize', async (req, res) => {
         })
 
         const text = message.content[0]?.type === 'text' ? message.content[0].text : '[]'
-        const clean = text.replace(/``json|```/g, '').trim()
+        const clean = text.replace(/```json|```/g, '').trim()
         const summaries = JSON.parse(clean)
 
         res.json({summaries})
