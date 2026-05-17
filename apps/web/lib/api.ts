@@ -229,3 +229,21 @@ export async function reviewWord(id: string, rating: 1 | 2 | 3 | 4): Promise<Voc
   const { data } = await api.post<VocabularyWord>(`/vocabulary/${id}/review`, { rating })
   return data
 }
+
+export interface UserStats{
+    streak: number
+    dailyGoal: number
+    englishLevel: string
+    wordsThisWeek: number
+    wordsDueForReview: number
+    episodesTranscribed: number
+}
+
+export async function getStats(): Promise<UserStats>{
+    const { data } = await api.get<UserStats>('/profile/stats')
+    return data
+}
+
+export async function logListening(minutes: number): Promise<void>{
+    await api.post('/profile/listen', {minutes})
+}

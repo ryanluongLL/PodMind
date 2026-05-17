@@ -1,6 +1,6 @@
 .card {
   display: block;
-  padding: 1rem;
+  padding: 0.75rem;
   background: var(--bg-card);
   border-radius: 0.875rem;
   border: 1px solid var(--border);
@@ -44,7 +44,7 @@
 
 .title {
   font-weight: 600;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -52,7 +52,7 @@
 }
 
 .episodeCount {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--text-dim);
   margin-top: 0.25rem;
 }

@@ -9,6 +9,7 @@ import { PodcastCard } from './components/PostcastCard'
 import { AddPodcastModal } from './components/AddPodcastModal'
 import styles from './page.module.css'
 import { BookMarked } from 'lucide-react'
+import { StatsBar } from './components/StatsBar'
 
 const UserButton = dynamic(
   () => import('@clerk/nextjs').then((mod) => mod.UserButton),
@@ -70,7 +71,8 @@ export default function Home() {
       </div>
     </div>
 
-    <div className={styles.content}>
+     <div className={styles.content}>
+       <StatsBar />
       {isLoading ? (
         <div className={styles.loading}>Loading...</div>
       ) : podcasts && podcasts.length > 0 ? (
