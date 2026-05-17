@@ -4,7 +4,7 @@ import { Play, Heart, Sparkles, ExternalLink, ChevronDown, BarChart2 } from "luc
 import { usePlayer } from "@/lib/playerStore";
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type Episode, toggleFavorite, transcribeEpisode } from "@/lib/api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styles from './EpisodeRow.module.css'
 import { TranscriptViewer } from "./TranscriptViewer";
 import { rateEpisodeDifficulty } from "@/lib/api";
@@ -15,6 +15,33 @@ import { DifficultyBadge } from "./DifficultyBadge";
 //   - Open the original episode page in a new tab
 //
 // After any mutation, invalidate the parent's React Query cache so the list re-fetches and reflects the new state (e.g. favorited episode jumps up, transcript badge appears)
+
+function TranscribingBadge() {
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => setElapsed((e) => e + 1), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const steps = [
+    { at: 0, label: 'Downloading audio...' },
+    { at: 8, label: 'Compressing audio...' },
+    { at: 15, label: 'Transcribing with Whisper...' },
+    { at: 45, label: 'Generating embeddings...' },
+    { at: 90, label: 'Almost done...' },
+  ]
+
+  const current = [...steps].reverse().find((s) => elapsed >= s.at) ?? steps[0]!
+
+  return (
+    <span className={styles.processingBadge}>
+      <span className={styles.processingDot} />
+      {current.label}
+    </span>
+  )
+}
+
 
 export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcastName:string }) {
     const queryClient = useQueryClient()
@@ -74,6 +101,8 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
         }
     })
 
+
+
     return (
         <div className={`${styles.rowWrapper} ${expanded ? styles.rowExpanded : ''}`}>
             <div className={styles.row}>
@@ -104,9 +133,7 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
                                 Transcript ready
                             </span>
                         )}
-                        {episode.transcript_status === 'processing' && (
-                            <span className={styles.processingBadge}>Transcribing...</span>
-                        )}
+                        {episode.transcript_status === 'processing' && <TranscribingBadge />}
                     </div>
                 </div>
 

@@ -8,6 +8,7 @@ import { addPodcast, searchItunesPodcasts, getTrendingPodcasts } from "@/lib/api
 import { useDebounce } from "@/lib/useDebounce"
 import styles from './AddPodcastModal.module.css'
 import { ItunesPodcast } from '../../lib/api';
+import { toast } from 'sonner'
 
 export function AddPodcastModal({ onClose }: { onClose: () => void }) {
     const [search, setSearch] = useState('')
@@ -43,7 +44,11 @@ export function AddPodcastModal({ onClose }: { onClose: () => void }) {
         mutationFn: (podcast: ItunesPodcast) => addPodcast(podcast.feedUrl, podcast.artworkUrl600),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['podcasts'] })
+            toast.success('Podcast added to your library!')
             onClose()
+        },
+        onError: () => {
+            toast.error('Failed to add podcast. Try a different one.')
         }
     })
 
