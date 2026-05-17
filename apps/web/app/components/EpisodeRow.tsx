@@ -1,14 +1,14 @@
 'use client'
 
-import { Play, Heart, Sparkles, ExternalLink } from "lucide-react"
+import { Play, Heart, Sparkles, ExternalLink, ChevronDown, BarChart2 } from "lucide-react"
 import { usePlayer } from "@/lib/playerStore";
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type Episode, toggleFavorite, transcribeEpisode } from "@/lib/api";
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
 import styles from './EpisodeRow.module.css'
 import { TranscriptViewer } from "./TranscriptViewer";
-
+import { rateEpisodeDifficulty } from "@/lib/api";
+import { DifficultyBadge } from "./DifficultyBadge";
 // Single row in the episode list. Owns three actions:
 //   - Toggle favorite (pins to top of the list)
 //   - Trigger transcription (kicks off the Whisper + embedding job)
@@ -67,6 +67,13 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
     ///only let users expand if we have segments to show
     const hasTranscript = episode.transcript_status === 'done' && (episode.transcript_segments?.length ?? 0) > 0
 
+    const difficultyMutation = useMutation({
+        mutationFn: () => rateEpisodeDifficulty(episode.id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['podcast', episode.podcast_id]})
+        }
+    })
+
     return (
         <div className={`${styles.rowWrapper} ${expanded ? styles.rowExpanded : ''}`}>
             <div className={styles.row}>
@@ -89,6 +96,7 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
                     <h3 className={styles.title}>{episode.title}</h3>
                     <div className={styles.meta}>
                         <span>{dateStr}</span>
+                        {episode.difficulty && <DifficultyBadge level={episode.difficulty} />}
                         {/* Conditional badges based on the transcript pipeline state */}
                         {episode.transcript_status === 'done' && (
                             <span className={styles.transcriptBadge}>
@@ -113,6 +121,18 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
                             <Play size={16} fill="currentColor" />
                         </button>
                     )}
+
+                    {episode.transcript_status === 'done' && !episode.difficulty && (
+                        <button
+                            onClick={() => difficultyMutation.mutate()}
+                            disabled={difficultyMutation.isPending}
+                            className={styles.transcribeBtn}
+                            title="Rate difficulty"
+                        >
+                            <BarChart2 size={16} />
+                        </button>
+                    )}
+
                     {!episode.transcript_status && (
                         <button
                             onClick={() => transcribeMutation.mutate()}

@@ -27,6 +27,8 @@ export interface Episode{
     hashtags: string[]
     transcript_status: 'pending' | 'processing' | 'done' | 'failed' | null
     transcript_segments: { start: number; end: number; text: string }[] | null
+    difficulty: string | null
+    words_per_minute: number | null
 }
 
 export async function getPodcasts(): Promise<Podcast[]>{
@@ -246,4 +248,15 @@ export async function getStats(): Promise<UserStats>{
 
 export async function logListening(minutes: number): Promise<void>{
     await api.post('/profile/listen', {minutes})
+}
+
+export interface DifficultyResult{
+    level: string
+    wordsPerMinute: number
+    reason: string
+}
+
+export async function rateEpisodeDifficulty(episodeId: string): Promise<DifficultyResult> {
+  const { data } = await api.post<DifficultyResult>(`/episodes/${episodeId}/rate-difficulty`)
+  return data
 }
