@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { pool } from '../db/index.js'
 import { enqueueTranscription } from '../jobs/queue.js'
+import Anthropic from '@anthropic-ai/sdk'
 
 const router = Router()
 
@@ -69,6 +70,74 @@ router.post('/:id/transcribe', async (req, res) => {
 
   await enqueueTranscription(episode.id, episode.audio_url, userId)
   res.json({ message: 'Transcription job enqueued', episodeId: episode.id })
+})
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+router.post('/:id/rate-difficulty', async (req, res) => {
+  const { id } = req.params
+  const userId = req.userId!
+
+  ///get the transcript for this viceo
+  const { rows } = await pool.query(
+    `SELECT t.full_text, t.segments, e.id
+     FROM transcripts t
+     JOIN episodes e ON e.id = t.episode_id
+     WHERE e.id = $1 AND e.user_id = $2 AND t.status = 'done'`,
+    [id, userId]
+  )
+
+  const episode = rows[0]
+  if (!episode) {
+    res.status(404).json({ error: 'Transcript not found or not ready' })
+    return
+  }
+
+  ///calculate words per minute from segments
+  const segments = episode.segments as { start: number; end: number; text: string }[]
+  let wordsPerMinute = 0
+  if (segments && segments.length > 0) {
+    const totalWords = episode.full_text.split(' ').length
+    const lastSegment = segments[segments.length - 1]
+    const durationMinutes = (lastSegment?.end ?? 0) / 60
+    wordsPerMinute = durationMinutes > 0 ? Math.round(totalWords / durationMinutes) : 0
+  }
+
+  ///sample the transcript - use first 2000 chars to save tokens
+  const sample = episode.full_text.slice(0, 2000)
+  
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 100,
+    messages: [{
+      role: 'user',
+      content: `Rate the English difficulty of this podcast transcript excerpt for language learners.
+
+Speaking speed: ${wordsPerMinute} words per minute
+
+Transcript:
+"${sample}"
+
+Respond with ONLY a JSON object like this:
+{"level": "B1", "reason": "one sentence explanation"}
+
+Use CEFR levels: A1, A2, B1, B2, C1, C2.
+Consider vocabulary complexity, sentence structure, speaking speed, and idioms.`
+    }]
+  })
+
+  const text = message.content[0]?.type === 'text' ? message.content[0].text : '{}'
+  const parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
+  const level = parsed.level as string
+
+  ///save to the episodes table
+  await pool.query(
+    `UPDATE episodes SET difficulty = $1, words_per_minute = $2 WHERE id = $3 AND user_id = $4`,
+    [level, wordsPerMinute, id, userId]
+  )
+
+  res.json({level, wordsPerMinute, reason: parsed.reason})
+
 })
 
 export default router
