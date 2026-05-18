@@ -24,7 +24,9 @@ export async function scrapeRSS(rssUrl: string): Promise<ParsedPodcast>{
         iconUrl: feed.image?.url ?? null,
         episodes: feed.items.slice(0, 20).map((item) => ({
             title: item.title ?? 'Untitled',
-            episodeUrl: (item.link?.startsWith('http') ? item.link : null) ?? '',
+            episodeUrl: item.link?.startsWith('http')
+                ? item.link
+                : item.guid ?? item.enclosure?.url ?? '',  // ← fallback chain
             audioUrl: item.enclosure?.url ?? null,
             iconUrl: item.itunes?.image ?? null,
             publishedAt: item.pubDate ? new Date(item.pubDate) : null,

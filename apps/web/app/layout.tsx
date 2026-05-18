@@ -17,8 +17,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <body>
           <Providers>
             {children}
+             <Toaster position="bottom-center" richColors />
             <AudioPlayer />
-            <Toaster position="bottom-center" richColors />
           </Providers>
         </body>
       </html>

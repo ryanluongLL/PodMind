@@ -6,6 +6,7 @@
   border: 1px solid var(--border);
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   position: relative;
+  overflow: hidden;     /* ← clip anything that overflows */
 }
 
 .card:hover {
@@ -55,6 +56,7 @@
   font-size: 0.75rem;
   color: var(--text-dim);
   margin-top: 0.25rem;
+  white-space: nowrap;
 }
 
 .deleteBtn {

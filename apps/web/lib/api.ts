@@ -29,6 +29,7 @@ export interface Episode{
     transcript_segments: { start: number; end: number; text: string }[] | null
     difficulty: string | null
     words_per_minute: number | null
+    transcript_progress: number | null
 }
 
 export async function getPodcasts(): Promise<Podcast[]>{

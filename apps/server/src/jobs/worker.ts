@@ -123,6 +123,13 @@ const worker = new Worker(
                 VALUES ($1, $2, $3, $4, $5)`,
                 [episodeId, chunk, JSON.stringify(vector), i, userId]
             )
+
+            // Update progress percentage after each chunk
+            const progress = Math.round(((i + 1) / chunks.length) * 100)
+            await pool.query(
+                `UPDATE transcripts SET progress = $1 WHERE episode_id = $2`,
+                [progress, episodeId]
+            )
         }
 
         console.log(`[worker] all done for episode ${episodeId}`)

@@ -16,32 +16,47 @@ import { DifficultyBadge } from "./DifficultyBadge";
 //
 // After any mutation, invalidate the parent's React Query cache so the list re-fetches and reflects the new state (e.g. favorited episode jumps up, transcript badge appears)
 
-function TranscribingBadge() {
-  const [elapsed, setElapsed] = useState(0)
+function TranscribingBadge({ podcastId }: {
+  podcastId: string
+}) {
+  const [fakeProgress, setFakeProgress] = useState(0)
+  const queryClient = useQueryClient()
 
+  // Slowly increment fake progress — never reaches 100 on its own
   useEffect(() => {
-    const interval = setInterval(() => setElapsed((e) => e + 1), 1000)
+    const interval = setInterval(() => {
+      setFakeProgress((p) => {
+        if (p < 90) return p + Math.random() * 3  // fast early
+        if (p < 98) return p + 0.2                // slow near end
+        return p                                   // never hits 100
+      })
+    }, 800)
     return () => clearInterval(interval)
   }, [])
 
-  const steps = [
-    { at: 0, label: 'Downloading audio...' },
-    { at: 8, label: 'Compressing audio...' },
-    { at: 15, label: 'Transcribing with Whisper...' },
-    { at: 45, label: 'Generating embeddings...' },
-    { at: 90, label: 'Almost done...' },
-  ]
+  // Poll for completion
+  useEffect(() => {
+    const poll = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['podcast', podcastId] })
+    }, 3000)
+    return () => clearInterval(poll)
+  }, [queryClient, podcastId])
 
-  const current = [...steps].reverse().find((s) => elapsed >= s.at) ?? steps[0]!
+  const pct = Math.min(Math.floor(fakeProgress), 98)
+
+  const label =
+    pct < 20 ? 'Downloading audio' :
+    pct < 40 ? 'Compressing audio' :
+    pct < 65 ? 'Transcribing with Whisper' :
+    'Generating embeddings'
 
   return (
     <span className={styles.processingBadge}>
       <span className={styles.processingDot} />
-      {current.label}
+      {label}... <strong className={styles.progressNum}>{pct}%</strong>
     </span>
   )
 }
-
 
 export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcastName:string }) {
     const queryClient = useQueryClient()
@@ -133,7 +148,9 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
                                 Transcript ready
                             </span>
                         )}
-                        {episode.transcript_status === 'processing' && <TranscribingBadge />}
+                        {episode.transcript_status === 'processing' && (
+                            <TranscribingBadge podcastId={episode.podcast_id} />
+                        )}
                     </div>
                 </div>
 

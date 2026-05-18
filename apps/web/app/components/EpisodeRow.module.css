@@ -187,3 +187,9 @@
   transform: rotate(180deg);
   color: var(--accent);
 }
+
+.progressNum {
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 700;
+}
