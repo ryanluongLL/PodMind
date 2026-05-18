@@ -37,7 +37,8 @@ router.post('/', async (req, res) => {
         const { rows } = await pool.query(
             `INSERT INTO podcasts (name, podbean_url, rss_url, icon_url, user_id)
             VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (rss_url) DO UPDATE SET name = EXCLUDED.name, icon_url = EXCLUDED.icon_url
+            ON CONFLICT (rss_url, user_id) DO UPDATE 
+            SET name = EXCLUDED.name, icon_url = EXCLUDED.icon_url
             RETURNING *`,
             [
                 parsed.name,
@@ -53,7 +54,7 @@ router.post('/', async (req, res) => {
             await pool.query(
                 `INSERT INTO episodes (podcast_id, title, episode_url, audio_url, icon_url, published_at, user_id)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (episode_url) DO NOTHING`,
+                ON CONFLICT DO NOTHING`,
                 [podcast.id, ep.title, ep.episodeUrl, ep.audioUrl, ep.iconUrl, ep.publishedAt, userId]
             )
         }
