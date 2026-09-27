@@ -1,15 +1,15 @@
 'use client'
-import dynamic from 'next/dynamic'
+
 import { useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, Compass } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { getPodcasts, getProfile } from '@/lib/api'
 import { PodcastCard } from './components/PostcastCard'
 import { AddPodcastModal } from './components/AddPodcastModal'
-import styles from './page.module.css'
-import { BookMarked } from 'lucide-react'
 import { StatsBar } from './components/StatsBar'
+import styles from './page.module.css'
 
 const UserButton = dynamic(
   () => import('@clerk/nextjs').then((mod) => mod.UserButton),
@@ -29,67 +29,99 @@ export default function Home() {
     queryFn: getPodcasts,
   })
 
-  // Fetch the user's profile to determine if they need onboarding
   const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: getProfile,
   })
 
-  // Show onboarding only on first sign-in (when onboarded flag is false)
   const showOnboarding = profile && !profile.onboarded
 
- return (
-  <main className={styles.main}>
-    <div className={styles.hero}>
-      <div className={styles.heroInner}>
-        <div className={styles.titleGroup}>
-          <h1>PodMind</h1>
-          <p className={styles.tagline}>Master English with real podcasts.</p>
-        </div>
-        <div className={styles.actions}>
-          <Link href="/search" className={styles.searchBtn}>
-            <Search size={16} />
-            <span>Search</span>
-          </Link>
-           
-          <Link href="/discover" className={styles.searchBtn}>
-            <Compass size={16} />
-            <span>Discover</span>
-          </Link>
-
-           <Link href="/vocabulary" className={styles.searchBtn}>
-             <BookMarked size={16} />
-             <span>Vocabulary</span>
-           </Link> 
-
-          <button onClick={() => setIsAddModalOpen(true)} className={styles.addBtn}>
+  let libraryContent
+  if (isLoading) {
+    libraryContent = (
+      <div className={styles.grid}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i}>
+            <div className={styles.skeletonCover} />
+            <div className={styles.skeletonLine} />
+            <div className={styles.skeletonLineShort} />
+          </div>
+        ))}
+      </div>
+    )
+  } else if (podcasts && podcasts.length > 0) {
+    libraryContent = (
+      <div className={styles.grid}>
+        {podcasts.map((p) => (
+          <PodcastCard key={p.id} podcast={p} />
+        ))}
+      </div>
+    )
+  } else {
+    libraryContent = (
+      <div className={styles.empty}>
+        <h2 className={styles.emptyTitle}>Start with one podcast</h2>
+        <p className={styles.emptyText}>
+          Pick a show you&apos;d listen to anyway. Episodes between 5 and 15 minutes are the
+          easiest place to start.
+        </p>
+        <div className={styles.emptyActions}>
+          <button onClick={() => setIsAddModalOpen(true)} className={styles.primaryBtn}>
             <Plus size={16} />
-            <span>Add podcast</span>
+            Add podcast
           </button>
-          <UserButton />
+          <Link href="/discover" className={styles.secondaryBtn}>
+            Browse by topic
+          </Link>
         </div>
       </div>
-    </div>
+    )
+  }
 
-     <div className={styles.content}>
-       <StatsBar />
-      {isLoading ? (
-        <div className={styles.loading}>Loading...</div>
-      ) : podcasts && podcasts.length > 0 ? (
-        <div className={styles.grid}>
-          {podcasts.map((p) => (
-            <PodcastCard key={p.id} podcast={p} />
-          ))}
-        </div>
-      ) : (
-        <div className={styles.empty}>
-          <p className={styles.emptyText}>No podcasts added yet</p>
-        </div>
-      )}
-    </div>
+  return (
+    <main className={styles.main}>
+      <header className={styles.nav}>
+        <div className={styles.navInner}>
+          <Link href="/" className={styles.brand}>
+            PodMind
+          </Link>
 
-    {isAddModalOpen && <AddPodcastModal onClose={() => setIsAddModalOpen(false)} />}
-    {showOnboarding && <OnboardingModal />}
-  </main>
-)
+          <nav className={styles.links} aria-label="Main">
+            <Link href="/search" className={styles.link}>
+              Search
+            </Link>
+            <Link href="/discover" className={styles.link}>
+              Discover
+            </Link>
+            <Link href="/vocabulary" className={styles.link}>
+              Vocabulary
+            </Link>
+            <Link href="/review" className={styles.link}>
+              Review
+            </Link>
+          </nav>
+
+          <div className={styles.navRight}>
+            <button onClick={() => setIsAddModalOpen(true)} className={styles.primaryBtn}>
+              <Plus size={16} />
+              Add podcast
+            </button>
+            <UserButton />
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.content}>
+        <section className={styles.intro}>
+          <h1 className={styles.title}>Your library</h1>
+          <StatsBar />
+        </section>
+
+        {libraryContent}
+      </div>
+
+      {isAddModalOpen && <AddPodcastModal onClose={() => setIsAddModalOpen(false)} />}
+      {showOnboarding && <OnboardingModal />}
+    </main>
+  )
 }

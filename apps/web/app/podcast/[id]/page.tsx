@@ -6,71 +6,99 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { getPodcast } from '@/lib/api'
 import { EpisodeRow } from '@/app/components/EpisodeRow'
-import styles from './page.module.css'
 import { DifficultyBadge } from '@/app/components/DifficultyBadge'
-
-///need to unwrap with React's use hook for params because Next.js 15 changed params to be a Promise
+import styles from './page.module.css'
 
 export default function PodcastDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params)
-    
-    /// queryKey includes the id so each podcast gets its own cache entry.
-    /// When EpisodeRow mutates an episode, it invalidates this key to trigger a refetch.
-    const { data, isLoading } = useQuery({
-        queryKey: ['podcast', id],
-        queryFn: () => getPodcast(id),
-    })
+  const { id } = use(params)
 
-    if (isLoading) return <div className={styles.loading}>Loading...</div>
-    if (!data) return <div className={styles.loading}>Not found</div>
-    
-    const { podcast, episodes } = data
+  const { data, isLoading } = useQuery({
+    queryKey: ['podcast', id],
+    queryFn: () => getPodcast(id),
+  })
 
-    const difficulties = episodes
-        .filter(ep => ep.difficulty)
-        .reduce((acc, ep) => {
-            acc[ep.difficulty!] = (acc[ep.difficulty!] ?? 0) + 1
-            return acc
-        }, {} as Record<string, number>)
-    
-    const difficultyEntries = Object.entries(difficulties)
-    
+  if (isLoading) {
     return (
-        <main className={styles.min}>
-            <Link href="/" className={styles.backBtn}>
-                <ArrowLeft size={16} />
-                <span>Back</span>
-            </Link>
-
-            {/* Spotify-style header — large cover art on the left, title info on the right */}
-            <header className={styles.header}>
-                <div className={styles.coverWrapper}>
-                    {podcast.icon_url && (
-                        <img src={podcast.icon_url} alt={podcast.name} className={styles.cover} />
-                    )}
-                </div>
-                <div className={styles.info}>
-                    <p className={styles.label}>Podcast</p>
-                    <h1 className={styles.title}>{podcast.name}</h1>
-                    <p className={styles.episodeCount}>{episodes.length} episodes</p>
-                    {difficultyEntries.length > 0 && (
-                        <div className={styles.difficultyRow}>
-                            {difficultyEntries.map(([level]) => (
-                                <span key={level} className={styles.difficultyPill}>
-                                    <DifficultyBadge level={level} />
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </header>
-
-            <div className={styles.episodeList}>
-                {episodes.map((ep) => (
-                    <EpisodeRow key={ep.id} episode={ep} podcastName={podcast.name} />
-                ))}
-            </div>
-        </main>
+      <main className={styles.main}>
+        <p className={styles.status}>Loading episodes...</p>
+      </main>
     )
+  }
 
+  if (!data) {
+    return (
+      <main className={styles.main}>
+        <p className={styles.status}>Podcast not found.</p>
+      </main>
+    )
+  }
+
+  const { podcast, episodes } = data
+
+  const transcribedCount = episodes.filter((ep) => ep.transcript_status === 'done').length
+
+  const difficulties = episodes
+    .filter((ep) => ep.difficulty)
+    .reduce((acc, ep) => {
+      const level = ep.difficulty as string
+      acc[level] = (acc[level] ?? 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+  const difficultyEntries = Object.entries(difficulties)
+
+  return (
+    <main className={styles.main}>
+      <div className={styles.topBar}>
+        <Link href="/" className={styles.backBtn}>
+          <ArrowLeft size={16} />
+          <span>Library</span>
+        </Link>
+      </div>
+
+      <header className={styles.header}>
+        <div className={styles.coverWrapper}>
+          {podcast.icon_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={podcast.icon_url} alt={podcast.name} className={styles.cover} />
+          ) : (
+            <div className={styles.coverFallback}>{podcast.name.charAt(0)}</div>
+          )}
+        </div>
+
+        <div className={styles.info}>
+          <p className={styles.label}>Podcast</p>
+          <h1 className={styles.title}>{podcast.name}</h1>
+
+          <div className={styles.metaRow}>
+            <span>{episodes.length} episodes</span>
+            <span className={styles.metaDot} aria-hidden="true">·</span>
+            <span>{transcribedCount} transcribed</span>
+            {difficultyEntries.length > 0 && (
+              <span className={styles.metaDot} aria-hidden="true">·</span>
+            )}
+            {difficultyEntries.map(([level, count]) => (
+              <span key={level} className={styles.difficultyPill}>
+                <DifficultyBadge level={level} />
+                <span className={styles.difficultyCount}>×{count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <section className={styles.episodeSection}>
+        <h2 className={styles.sectionTitle}>Episodes</h2>
+        <div className={styles.episodeList}>
+          {episodes.map((ep) => (
+            <EpisodeRow
+              key={ep.id}
+              episode={{ ...ep, icon_url: ep.icon_url ?? podcast.icon_url }}
+              podcastName={podcast.name}
+            />
+          ))}
+        </div>
+      </section>
+    </main>
+  )
 }
