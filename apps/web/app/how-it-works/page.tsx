@@ -25,7 +25,7 @@ export default function HowItWorksPage() {
           </h1>
           <p className={styles.heroDesc}>
             Most language apps teach you with fake dialogues. PodMind teaches you
-            from how people actually speak — comedians, journalists, scientists, storytellers.
+            from how people actually speak: Comedians, journalists, scientists, storytellers.
             Click any word to translate it. Save it. Review it forever.
           </p>
           <div className={styles.heroActions}>
@@ -62,7 +62,7 @@ export default function HowItWorksPage() {
               <h3 className={styles.stepTitle}>Add a podcast</h3>
               <p className={styles.stepDesc}>
                 Click <strong>Add podcast</strong> on the home page and search for any English-language podcast.
-                PodMind pulls episodes directly from the podcast&apos;s RSS feed — any podcast works.
+                PodMind pulls episodes directly from the podcast&apos;s RSS feed any podcast works.
                 You can also browse curated recommendations on the <strong>Discover</strong> page.
               </p>
             </div>
@@ -76,7 +76,7 @@ export default function HowItWorksPage() {
               <p className={styles.stepDesc}>
                 Click the <Sparkles size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> icon
                 on any episode to transcribe it. PodMind uses OpenAI Whisper to generate a
-                word-for-word transcript with precise timestamps — this takes 1-3 minutes depending
+                word-for-word transcript with precise timestamps and this takes 1-3 minutes depending
                 on episode length. Once done, you&apos;ll see <strong>Transcript ready</strong> on the episode.
               </p>
             </div>
@@ -121,7 +121,7 @@ export default function HowItWorksPage() {
           Difficulty levels explained
         </h2>
         <p className={styles.sectionSubtitle}>
-          PodMind uses the CEFR (Common European Framework of Reference) scale —
+          PodMind uses the CEFR (Common European Framework of Reference) scale
           the international standard for measuring language proficiency.
           Click the <BarChart2 size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> icon
           on any transcribed episode to rate its difficulty.
