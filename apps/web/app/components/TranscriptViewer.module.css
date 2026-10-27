@@ -1,23 +1,28 @@
-.viewer{
-    padding: 1rem 1.5rem 1.5rem 4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    border-top: 1px solid var(--border);
-    margin-top: 0.5rem;
-    animation: slideDown 0.2s ease-out;
+.viewer {
+  padding: 0.75rem 1.25rem 1.25rem 3.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  animation: slideDown 200ms ease-out;
+}
+
+.hint {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  padding: 0 0.75rem 0.5rem;
 }
 
 .segment {
-  text-align: left;
-  background: transparent;
-  color: var(--text-muted);
   padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
+  border-left: 3px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-size: 0.9375rem;
-  line-height: 1.65;
-  transition: background 0.15s, color 0.15s;
+  line-height: 1.7;
+  color: var(--text-muted);
   cursor: pointer;
+  user-select: none;
+  transition: background 150ms, color 150ms, border-color 150ms;
 }
 
 .segment:hover {
@@ -25,39 +30,45 @@
   color: var(--text);
 }
 
-.segmentActive {
-  background: rgba(255, 235, 187, 0.6);   /* --color-peach tint */
+/* The line currently being spoken */
+.segmentActive,
+.segmentActive:hover {
+  background: var(--highlight-soft);
+  border-left-color: var(--text);
   color: var(--text);
-  font-weight: 500;
-  box-shadow: inset 3px 0 0 var(--accent);
-}
-
-.hint {
-  font-size: 0.8125rem;
-  color: var(--text-faint);
-  padding: 0 0.75rem 0.5rem;
-  font-style: italic;
 }
 
 .word {
+  border-radius: 3px;
+  padding: 0 1px;
   cursor: pointer;
-  border-radius: 0.2rem;
-  padding: 0 0.05rem;
-  transition: background 0.1s;
-  display: inline;
+  transition: background 120ms;
 }
 
 .word:hover {
-  background: var(--color-peach);
+  background: var(--highlight);
+}
+
+/* The word whose popup is open */
+.wordActive {
+  background: var(--highlight);
+  box-shadow: inset 0 -2px 0 var(--text);
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .viewer {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 }
