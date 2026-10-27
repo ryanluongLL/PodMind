@@ -6,13 +6,10 @@ import { pool } from './db/index.js'
 import podcastsRouter from './routes/podcasts.js'
 import searchRouter from './routes/search.js'
 import episodeRouter from './routes/episodes.js'
-import './jobs/worker.js'
-import { clerkAuth, requireAuth } from './middleware/auth.js'
 import discoverRouter from './routes/discover.js'
 import audioRouter from './routes/audio.js'
-import profileRouter from './routes/profile.js'
 import translateRouter from './routes/translate.js'
-import vocabularyRouter from './routes/vocabulary.js'
+import './jobs/worker.js'
 
 
 const app = express()
@@ -26,8 +23,6 @@ app.use(cors({
 }))
 app.use(express.json())
 
-///JWT verification on every request
-app.use(clerkAuth)
 
 ///public route - no auth needed
 app.get('/health', async (_req, res) => {
@@ -35,14 +30,14 @@ app.get('/health', async (_req, res) => {
   res.json({status: 'ok', time: result.rows[0]})
 })
 
-app.use('/podcasts', requireAuth, podcastsRouter)
-app.use('/search', requireAuth, searchRouter)
-app.use('/episodes', requireAuth, episodeRouter)
+// No login: the podcast library and transcripts are shared by all visitors.
+// Personal data (vocabulary, reviews, favorites, streak) lives in the browser.
+app.use('/podcasts', podcastsRouter)
+app.use('/episodes', episodeRouter)
+app.use('/search', searchRouter)
 app.use('/discover', discoverRouter)
-app.use('/audio', requireAuth, audioRouter)
-app.use('/profile', requireAuth, profileRouter)
-app.use('/translate', requireAuth, translateRouter)
-app.use('/vocabulary', requireAuth, vocabularyRouter)
+app.use('/audio', audioRouter)
+app.use('/translate', translateRouter)
 
 app.listen(process.env.PORT || 3001, () => {
   console.log(`Server running on port ${process.env.PORT || 3001}`)

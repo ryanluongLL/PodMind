@@ -1,6 +1,5 @@
 import { Queue } from 'bullmq'
 import { Redis } from 'ioredis'
-console.log('REDIS_URL:', process.env.REDIS_URL)
 
 const connection = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
   maxRetriesPerRequest: null,
@@ -8,10 +7,10 @@ const connection = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', 
 
 export const transcriptionQueue = new Queue('transcription', { connection })
 
-export async function enqueueTranscription(episodeId: string, audioUrl: string, userId: string) {
+export async function enqueueTranscription(episodeId: string, audioUrl: string) {
   await transcriptionQueue.add(
     'transcribe',
-    { episodeId, audioUrl, userId },
+    { episodeId, audioUrl },
     {
       attempts: 3,
       backoff: { type: 'exponential', delay: 5000 },

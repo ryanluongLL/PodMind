@@ -1,158 +1,111 @@
-import { enqueueTranscription } from '../jobs/queue.js'
 import { Router } from 'express'
 import { pool } from '../db/index.js'
-import { scrapeRSS } from '../scrapers/rss.js'  // ← was scrapeRRS
+import { scrapeRSS } from '../scrapers/rss.js'
 import { scrapePodbean } from '../scrapers/podbean.js'
 
 const router = Router()
 
-///POST /podcast - scrape and save a new podcast, scoped to the current uesr
+// POST /podcasts
+// Scrapes a feed and adds the podcast to the shared library. Adding a
+// podcast that already exists just refreshes its name and artwork, and any
+// new episodes get inserted.
 router.post('/', async (req, res) => {
-    const { url, iconUrl } = req.body as { url: string; iconUrl?: string }
-    const userId = req.userId!
+  const { url, iconUrl } = req.body as { url?: string; iconUrl?: string }
 
-    if (!url) {
-        res.status(400).json({ error: 'URL is required' })
-        return
+  if (!url) {
+    res.status(400).json({ error: 'URL is required' })
+    return
+  }
+
+  const isPodbean = url.startsWith('https://www.podbean.com/podcast-detail/')
+  const isRSS = url.startsWith('http')
+
+  if (!isPodbean && !isRSS) {
+    res.status(400).json({ error: 'Invalid URL' })
+    return
+  }
+
+  try {
+    let parsed
+    if (isPodbean) {
+      parsed = await scrapePodbean(url)
+    } else {
+      parsed = await scrapeRSS(url)
     }
 
-    const isPodBean = url.startsWith('https://www.podbean.com/podcast-detail/')
-    const isRSS = url.startsWith('http')
+    const finalIconUrl = iconUrl ?? parsed.iconUrl
 
-    if (!isPodBean && !isRSS) {
-        res.status(400).json({ error: "Invalid URL" })
-        return
-    }
-
-    try {
-        let parsed;
-        if (isPodBean) {
-            parsed = await scrapePodbean(url);
-        } else {
-            parsed = await scrapeRSS(url);
-        }
-        
-        const finalIconUrl=iconUrl ?? parsed.iconUrl
-
-        const { rows } = await pool.query(
-            `INSERT INTO podcasts (name, podbean_url, rss_url, icon_url, user_id)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (rss_url, user_id) DO UPDATE 
-            SET name = EXCLUDED.name, icon_url = EXCLUDED.icon_url
-            RETURNING *`,
-            [
-                parsed.name,
-                isPodBean ? url : null,
-                isPodBean ? null : url,
-                finalIconUrl,
-                userId,
-            ]
-        )
-
-        const podcast = rows[0]
-        for (const ep of parsed.episodes) {
-            await pool.query(
-                `INSERT INTO episodes (podcast_id, title, episode_url, audio_url, icon_url, published_at, user_id)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT DO NOTHING`,
-                [podcast.id, ep.title, ep.episodeUrl, ep.audioUrl, ep.iconUrl, ep.publishedAt, userId]
-            )
-        }
-        res.json({podcast, episodeCount: parsed.episodes.length})
-    } catch (err) {
-        console.error(err)
-        res.status(500).json({error: "Failed to scrape podcast"})
-    }
-})
-
-
-///GET /podcast only return podcasts belonging to the current user
-router.get('/', async (req, res) => {
-    const userId = req.userId!
+    // user_id is left to its default value, so the existing
+    // (rss_url, user_id) unique constraint acts as unique on rss_url alone.
     const { rows } = await pool.query(
-        `SELECT p.*, COUNT(e.id)::int AS episode_count
-        FROM podcasts p
-        LEFT JOIN episodes e ON e.podcast_id = p.id
-        WHERE p.user_id = $1
-        GROUP BY p.id
-        ORDER BY p.created_at DESC`,
-        [userId]
+      `INSERT INTO podcasts (name, podbean_url, rss_url, icon_url)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (rss_url, user_id) DO UPDATE
+       SET name = EXCLUDED.name, icon_url = EXCLUDED.icon_url
+       RETURNING *`,
+      [
+        parsed.name,
+        isPodbean ? url : null,
+        isPodbean ? null : url,
+        finalIconUrl,
+      ]
     )
-    res.json(rows)
+
+    const podcast = rows[0]
+    for (const ep of parsed.episodes) {
+      await pool.query(
+        `INSERT INTO episodes (podcast_id, title, episode_url, audio_url, icon_url, published_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT DO NOTHING`,
+        [podcast.id, ep.title, ep.episodeUrl, ep.audioUrl, ep.iconUrl, ep.publishedAt]
+      )
+    }
+
+    res.json({ podcast, episodeCount: parsed.episodes.length })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to scrape podcast' })
+  }
 })
 
+// GET /podcasts
+// Every podcast in the shared library, newest first.
+router.get('/', async (_req, res) => {
+  const { rows } = await pool.query(
+    `SELECT p.*, COUNT(e.id)::int AS episode_count
+     FROM podcasts p
+     LEFT JOIN episodes e ON e.podcast_id = p.id
+     GROUP BY p.id
+     ORDER BY p.created_at DESC`
+  )
+  res.json(rows)
+})
 
-// GET /podcasts/:id — verify ownership before returning
+// GET /podcasts/:id
+// One podcast with its episodes and their transcript status.
+// Favorites are stored in the browser, so episodes are just sorted by date.
 router.get('/:id', async (req, res) => {
   const { id } = req.params
-  const userId = req.userId!
 
-  const podcastRes = await pool.query(
-    `SELECT * FROM podcasts WHERE id = $1 AND user_id = $2`,
-    [id, userId]
-  )
+  const podcastRes = await pool.query(`SELECT * FROM podcasts WHERE id = $1`, [id])
   if (podcastRes.rows.length === 0) {
     res.status(404).json({ error: 'Podcast not found' })
     return
   }
 
-const episodesRes = await pool.query(
-  `SELECT e.*, t.status AS transcript_status, t.segments AS transcript_segments, t.progress AS transcript_progress
-   FROM episodes e
-   LEFT JOIN transcripts t ON t.episode_id = e.id
-   WHERE e.podcast_id = $1 AND e.user_id = $2
-   ORDER BY e.is_favorite DESC, e.published_at DESC`,
-  [id, userId]
-)
+  const episodesRes = await pool.query(
+    `SELECT e.*,
+            t.status AS transcript_status,
+            t.segments AS transcript_segments,
+            t.progress AS transcript_progress
+     FROM episodes e
+     LEFT JOIN transcripts t ON t.episode_id = e.id
+     WHERE e.podcast_id = $1
+     ORDER BY e.published_at DESC NULLS LAST`,
+    [id]
+  )
 
   res.json({ podcast: podcastRes.rows[0], episodes: episodesRes.rows })
 })
-
-// POST /podcasts/:id/transcribe — enqueue transcription for one episode
-router.post('/:id/transcribe', async (req, res) => {
-  const { id } = req.params
-  const userId = req.userId!
-
-  const { rows } = await pool.query(
-    `SELECT e.id, e.audio_url FROM episodes e
-     WHERE e.podcast_id = $1 AND e.user_id = $2 AND e.audio_url IS NOT NULL
-     LIMIT 1`,
-    [id, userId]
-  )
-  const episode = rows[0]
-  if (!episode) {
-    res.status(404).json({ error: 'No episodes with audio found' })
-    return
-  }
-
-  await pool.query(
-    `INSERT INTO transcripts (episode_id, full_text, status, user_id)
-     VALUES ($1, '', 'pending', $2)
-     ON CONFLICT (episode_id) DO NOTHING`,
-    [episode.id, userId]
-  )
-
-  await enqueueTranscription(episode.id, episode.audio_url, userId)
-  res.json({ message: 'Transcription job enqueued', episodeId: episode.id })
-})
-
-///delete /podcasts/:id
-///verifies ownership, then deltes the podcast. Foregin key CASCADE handles related episodes, transcripts, and embeddings automatically
-router.delete('/:id', async (req, res) => {
-    const { id } = req.params
-    const userId = req.userId!
-
-    const { rowCount } = await pool.query(
-        `DELETE FROM podcasts WHERE id = $1 AND user_id = $2`,
-        [id, userId]
-    )
-
-    if (rowCount === 0) {
-        res.status(404).json({ error: 'Podcast not found' })
-        return
-    }
-    res.json({message: 'Podcast deleted'})
-})
-
 
 export default router
