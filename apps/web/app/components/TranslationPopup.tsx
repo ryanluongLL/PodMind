@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { BookMarked, Loader2, X } from 'lucide-react'
-import type { TranslationResult } from '@/lib/api'
+import { BookMarked, Check, Loader2, Play, X } from 'lucide-react'
+import type { ExampleSentence, TranslationResult, WordRarity } from '@/lib/api'
 import styles from './TranslationPopup.module.css'
 
 interface Props {
@@ -12,17 +12,96 @@ interface Props {
   isLoading: boolean
   onSave: () => void
   onClose: () => void
+  onExampleClick: (example: ExampleSentence) => void
   isSaved: boolean
   isSaving: boolean
 }
 
-// Floating popup that appears when the user clicks a word in the transcript.
-// Positioned near the clicked word using x/y coordinates from the click event.
-// Closes when clicking outside or pressing Escape.
-export function TranslationPopup({ word, position, result, isLoading, onSave, onClose, isSaved, isSaving }: Props) {
+const POPUP_WIDTH = 320
+const POPUP_HEIGHT_ESTIMATE = 460
+
+const RARITY_LEVEL: Record<WordRarity['band'], number> = {
+  'very common': 4,
+  common: 3,
+  'less common': 2,
+  rare: 1,
+}
+
+const RARITY_NAME: Record<WordRarity['band'], string> = {
+  'very common': 'Very common',
+  common: 'Common',
+  'less common': 'Less common',
+  rare: 'Rare',
+}
+
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// Wraps every form of the looked up word in a highlighter mark, so
+// "disciple group" lights up "disciple" when the learner clicked "disciples".
+function renderHighlighted(text: string, word: string, lemma: string) {
+  const base = lemma.length > 0 ? lemma : word
+  const pattern = new RegExp(`\\b(${escapeRegex(word)}|${escapeRegex(base)}[a-z]*)\\b`, 'gi')
+  const parts = text.split(pattern)
+
+  return parts.map((part, i) => {
+    // With one capture group, split puts matches at odd indexes
+    if (i % 2 === 1) {
+      return (
+        <mark key={i} className={styles.mark}>
+          {part}
+        </mark>
+      )
+    }
+    return <span key={i}>{part}</span>
+  })
+}
+
+function RarityMeter({ rarity }: { rarity: WordRarity }) {
+  const level = RARITY_LEVEL[rarity.band]
+  const name = RARITY_NAME[rarity.band]
+
+  const bars = []
+  for (let i = 1; i <= 4; i++) {
+    let className = styles.bar
+    if (i <= level) {
+      className = `${styles.bar} ${styles.barOn}`
+    }
+    bars.push(<span key={i} className={className} />)
+  }
+
+  return (
+    <span className={styles.rarity} aria-label={`Word frequency: ${name}`}>
+      <span className={styles.bars} aria-hidden="true">
+        {bars}
+      </span>
+      {name}
+    </span>
+  )
+}
+
+// Floating word lookup card. Opens near the clicked word, flips above it when
+// there isn't room below, and closes on outside click or Escape.
+export function TranslationPopup({
+  word,
+  position,
+  result,
+  isLoading,
+  onSave,
+  onClose,
+  onExampleClick,
+  isSaved,
+  isSaving,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null)
 
-  // Close when clicking outside the popup
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -30,7 +109,9 @@ export function TranslationPopup({ word, position, result, isLoading, onSave, on
       }
     }
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+      }
     }
     document.addEventListener('mousedown', handleClick)
     document.addEventListener('keydown', handleEsc)
@@ -40,61 +121,100 @@ export function TranslationPopup({ word, position, result, isLoading, onSave, on
     }
   }, [onClose])
 
- // Smart positioning — show above click if in bottom half of screen
-  const popupHeight = 380
-  const popupWidth = 288
+  let top = position.y + 14
+  if (position.y + POPUP_HEIGHT_ESTIMATE > window.innerHeight) {
+    top = Math.max(8, position.y - POPUP_HEIGHT_ESTIMATE)
+  }
+  const left = Math.min(Math.max(position.x - 120, 8), window.innerWidth - POPUP_WIDTH - 8)
 
-  const top = position.y + popupHeight > window.innerHeight
-    ? Math.max(8, position.y - popupHeight)  // show above
-    : position.y + 12                         // show below
+  const showLemma = result !== null && result.lemma.length > 0 && result.lemma !== word
 
-  const left = Math.min(
-    Math.max(position.x - 100, 8),
-    window.innerWidth - popupWidth - 8
-  )
-
-const style = { top, left }
+  let saveLabel = 'Save to vocabulary'
+  if (isSaving) {
+    saveLabel = 'Saving...'
+  } else if (isSaved) {
+    saveLabel = 'Saved to vocabulary'
+  }
 
   return (
-    <div ref={ref} className={styles.popup} style={style}>
+    <div
+      ref={ref}
+      className={styles.popup}
+      style={{ top, left }}
+      role="dialog"
+      aria-labelledby="word-popup-title"
+    >
       <div className={styles.header}>
-        <span className={styles.word}>{word}</span>
-        <button onClick={onClose} className={styles.closeBtn}>
-          <X size={14} />
+        <div>
+          <h3 id="word-popup-title" className={styles.word}>
+            {word}
+          </h3>
+          {showLemma && (
+            <p className={styles.lemma}>
+              from <em>{result.lemma}</em>
+            </p>
+          )}
+        </div>
+        <button onClick={onClose} className={styles.closeBtn} aria-label="Close">
+          <X size={16} />
         </button>
       </div>
 
       {isLoading && (
         <div className={styles.loading}>
           <Loader2 size={16} className={styles.spinner} />
-          <span>Translating...</span>
+          <span>Looking up...</span>
         </div>
       )}
 
       {result && !isLoading && (
         <>
-          <div className={styles.translation}>{result.translation}</div>
+          {result.translation && <p className={styles.translation}>{result.translation}</p>}
 
-          {result.partOfSpeech && (
-            <span className={styles.badge}>{result.partOfSpeech}</span>
+          <div className={styles.metaRow}>
+            {result.partOfSpeech && <span className={styles.pos}>{result.partOfSpeech}</span>}
+            <RarityMeter rarity={result.rarity} />
+          </div>
+
+          {result.definition && <p className={styles.definition}>{result.definition}</p>}
+          <p className={styles.rarityNote}>{result.rarity.label}</p>
+
+          {result.otherMeanings.length > 0 && (
+            <details className={styles.other}>
+              <summary className={styles.otherSummary}>
+                Other meanings ({result.otherMeanings.length})
+              </summary>
+              <ol className={styles.otherList}>
+                {result.otherMeanings.map((m, i) => (
+                  <li key={i}>
+                    {m.partOfSpeech && <span className={styles.otherPos}>{m.partOfSpeech}</span>}
+                    {m.definition}
+                  </li>
+                ))}
+              </ol>
+            </details>
           )}
 
-          {result.definition && (
-            <p className={styles.definition}>{result.definition}</p>
-          )}
-
-          {result.usageNote && (
-            <p className={styles.usageNote}>
-              <span className={styles.label}>Usage: </span>
-              {result.usageNote}
-            </p>
-          )}
-
-          {result.exampleSentence && (
-            <p className={styles.example}>
-              <span className={styles.label}>Example: </span>
-              <em>{result.exampleSentence}</em>
-            </p>
+          {result.examples.length > 0 && (
+            <section className={styles.examples}>
+              <h4 className={styles.sectionLabel}>Heard in your podcasts</h4>
+              <ul className={styles.exampleList}>
+                {result.examples.map((ex, i) => (
+                  <li key={i}>
+                    <button className={styles.exampleBtn} onClick={() => onExampleClick(ex)}>
+                      <span className={styles.exampleText}>
+                        {renderHighlighted(ex.text, word, result.lemma)}
+                      </span>
+                      <span className={styles.exampleSource}>
+                        <Play size={11} fill="currentColor" aria-hidden="true" />
+                        <span className={styles.sourceTitle}>{ex.podcastName}</span>
+                        <span className={styles.sourceTime}>{formatTime(ex.start)}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           <button
@@ -102,8 +222,8 @@ const style = { top, left }
             disabled={isSaved || isSaving}
             className={`${styles.saveBtn} ${isSaved ? styles.saveBtnSaved : ''}`}
           >
-            <BookMarked size={14} />
-            {isSaved ? 'Saved to vocabulary' : 'Save to vocabulary'}
+            {isSaved ? <Check size={15} /> : <BookMarked size={15} />}
+            {saveLabel}
           </button>
         </>
       )}

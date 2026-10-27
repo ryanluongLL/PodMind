@@ -95,7 +95,7 @@ export interface ItunesPodcast{
     feedUrl: string
     primaryGenreName: string
     trackCount: number
-    description?: string        
+    description?: string
     contentAdvisoryRating?: string
 }
 
@@ -200,25 +200,51 @@ export async function deleteWord(id: string): Promise<void>{
     await api.delete(`/vocabulary/${id}`)
 }
 
+export interface ExampleSentence {
+  text: string
+  episodeId: string
+  episodeTitle: string
+  podcastName: string
+  start: number
+  audioUrl: string | null
+  iconUrl: string | null
+}
+
+export interface WordRarity {
+  rank: number | null
+  band: 'very common' | 'common' | 'less common' | 'rare'
+  label: string
+}
+
+export interface OtherMeaning {
+  partOfSpeech: string
+  definition: string
+}
+
 export interface TranslationResult {
   word: string
+  lemma: string
   translation: string
   partOfSpeech: string
   definition: string
-  usageNote: string
-  exampleSentence: string
+  otherMeanings: OtherMeaning[]
+  rarity: WordRarity
+  examples: ExampleSentence[]
 }
 
-// Translates a word with full context — definition, usage, and example sentence
+// Looks up a word in its sentence. Built server side from context tagging,
+// weighted Lesk over WordNet, transcript examples, and word frequency.
 export async function translateWord(
   word: string,
   targetLang: string,
-  context: string
+  context: string,
+  episodeId: string
 ): Promise<TranslationResult> {
   const { data } = await api.post<TranslationResult>('/translate', {
     word,
     targetLang,
     context,
+    episodeId,
   })
   return data
 }
