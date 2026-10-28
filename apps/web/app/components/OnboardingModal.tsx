@@ -1,155 +1,182 @@
-'use client'
+"use client"
 
 import { useState } from "react"
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, Globe, Target } from "lucide-react";
-import { updateProfile } from "@/lib/api";
-import { NATIVE_LANGUAGES, ENGLISH_LEVELS } from "@/lib/constant";
-import styles from './OnboardingModal.module.css'
+import {
+  NATIVE_LANGUAGES,
+  ENGLISH_LEVELS,
+  type NativeLanguageCode,
+  type EnglishLevelCode,
+} from "@/lib/constant"
+import { saveProfile } from "@/lib/localStore"
+import styles from "./OnboardingModal.module.css"
 
-// Three-step onboarding shown on first sign-in. Collects:
-//   1. Native language (so we know what to translate to)
-//   2. English level (so we can filter content appropriately)
-//   3. Daily listening goal (drives streak + progress tracking)
-//
-// On completion, sets onboarded=true so this modal never shows again.
-// All settings are editable later in /settings.
+const GOAL_OPTIONS = [10, 15, 30, 60]
+const TOTAL_STEPS = 3
+
+/// First visit setup. Collects the native language (translation target),
+/// English level (used by the coverage recommender), and a daily listening
+/// goal. Saving sets onboarded to true, and the home page hides this modal
+/// automatically because it reads the same profile from localStorage.
 export function OnboardingModal() {
-    const [step, setStep] = useState(0)
-    const [nativeLanguage, setNativeLanguage] = useState('vi')
-    const [englishLevel, setEnglishLevel] = useState<'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'>('B1')
-    const [dailyGoal, setDailyGoal] = useState(15)
-    const queryClient = useQueryClient()
+  const [step, setStep] = useState(0)
+  const [nativeLanguage, setNativeLanguage] = useState<NativeLanguageCode>("vi")
+  const [englishLevel, setEnglishLevel] = useState<EnglishLevelCode>("B1")
+  const [dailyGoal, setDailyGoal] = useState(15)
 
-    const mutation = useMutation({
-        mutationFn: () =>
-            updateProfile({
-                native_language: nativeLanguage,
-                english_level: englishLevel,
-                daily_goal_minutes: dailyGoal,
-                onboarded: true,
-            }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ['profile']})
-        },
+  const goNext = () => {
+    if (step < TOTAL_STEPS - 1) {
+      setStep(step + 1)
+      return
+    }
+    saveProfile({
+      nativeLanguage,
+      englishLevel,
+      dailyGoalMinutes: dailyGoal,
+      onboarded: true,
     })
+  }
 
-    const goNext = () => {
-        if (step < 2) setStep(step + 1)
-        else mutation.mutate()
+  const goBack = () => {
+    if (step > 0) {
+      setStep(step - 1)
     }
+  }
 
-    const goBack = () => {
-        if(step > 0) setStep(step -1)
+  let primaryLabel = "Continue"
+  if (step === 0) {
+    primaryLabel = "Get started"
+  } else if (step === TOTAL_STEPS - 1) {
+    primaryLabel = "Start learning"
+  }
+
+  const segments = []
+  for (let i = 0; i < TOTAL_STEPS; i++) {
+    let className = styles.segment
+    if (i <= step) {
+      className = `${styles.segment} ${styles.segmentOn}`
     }
-    
-    return (
+    segments.push(<span key={i} className={className} />)
+  }
+
+  return (
     <div className={styles.overlay}>
-      <div className={styles.modal}>
-        {/* Progress dots — 3 steps total */}
-        <div className={styles.progress}>
-          {[0, 1, 2].map((i) => (
-            <div key={i} className={`${styles.dot} ${i <= step ? styles.dotActive : ''}`} />
-          ))}
+      <div
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-title"
+      >
+        <p className={styles.stepLabel}>
+          Step {step + 1} of {TOTAL_STEPS}
+        </p>
+        <div className={styles.progress} aria-hidden="true">
+          {segments}
         </div>
 
         {step === 0 && (
-          <div className={styles.step}>
-            <div className={styles.iconWrapper}>
-              <Sparkles size={32} />
-            </div>
-            <h2 className={styles.title}>Welcome to PodMind</h2>
+          <>
+            <h2 id="onboarding-title" className={styles.title}>
+              Welcome to PodMind
+            </h2>
             <p className={styles.subtitle}>
-              Learn English by listening to real podcasts. Let&apos;s set up your profile in 3 quick steps.
+              Learn English from real podcasts. Click any word in a transcript to see what
+              it means, save it, and review it later. Two quick questions and you&apos;re in.
             </p>
-            <button onClick={goNext} className={styles.primaryBtn}>
-              Get started
-            </button>
-          </div>
+            <p className={styles.note}>
+              No account needed. Your words and progress are saved in this browser.
+            </p>
+          </>
         )}
 
         {step === 1 && (
-          <div className={styles.step}>
-            <div className={styles.iconWrapper}>
-              <Globe size={32} />
-            </div>
-            <h2 className={styles.title}>What&apos;s your native language?</h2>
+          <>
+            <h2 id="onboarding-title" className={styles.title}>
+              What&apos;s your native language?
+            </h2>
             <p className={styles.subtitle}>
-              We&apos;ll translate unfamiliar words to your language so you can learn faster.
+              Words you click will be translated into this language.
             </p>
-
             <div className={styles.languageGrid}>
-              {NATIVE_LANGUAGES.map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => setNativeLanguage(lang.code)}
-                  className={`${styles.langCard} ${nativeLanguage === lang.code ? styles.langCardActive : ''}`}
-                >
-                  <span className={styles.langLabel}>{lang.label}</span>
-                  <span className={styles.langEnglish}>{lang.english}</span>
-                </button>
-              ))}
+              {NATIVE_LANGUAGES.map((lang) => {
+                let className = styles.option
+                if (nativeLanguage === lang.code) {
+                  className = `${styles.option} ${styles.optionActive}`
+                }
+                return (
+                  <button
+                    key={lang.code}
+                    onClick={() => setNativeLanguage(lang.code)}
+                    className={className}
+                    aria-pressed={nativeLanguage === lang.code}
+                  >
+                    <span className={styles.optionTitle}>{lang.label}</span>
+                    <span className={styles.optionSub}>{lang.english}</span>
+                  </button>
+                )
+              })}
             </div>
-
-            <div className={styles.navRow}>
-              <button onClick={goBack} className={styles.secondaryBtn}>Back</button>
-              <button onClick={goNext} className={styles.primaryBtn}>Continue</button>
-            </div>
-          </div>
+          </>
         )}
 
         {step === 2 && (
-          <div className={styles.step}>
-            <div className={styles.iconWrapper}>
-              <Target size={32} />
-            </div>
-            <h2 className={styles.title}>What&apos;s your English level?</h2>
-            <p className={styles.subtitle}>
-              We&apos;ll recommend podcasts that match your level. You can change this anytime.
-            </p>
-
+          <>
+            <h2 id="onboarding-title" className={styles.title}>
+              How well do you understand spoken English?
+            </h2>
+            <p className={styles.subtitle}>Pick the one that sounds most like you.</p>
             <div className={styles.levelList}>
-              {ENGLISH_LEVELS.map((level) => (
-                <button
-                  key={level.code}
-                  onClick={() => setEnglishLevel(level.code)}
-                  className={`${styles.levelCard} ${englishLevel === level.code ? styles.levelCardActive : ''}`}
-                >
-                  <div className={styles.levelLabel}>{level.label}</div>
-                  <div className={styles.levelDescription}>{level.description}</div>
-                </button>
-              ))}
-            </div>
-
-            <div className={styles.goalSection}>
-              <label className={styles.goalLabel}>Daily listening goal</label>
-              <div className={styles.goalRow}>
-                {[10, 15, 30, 60].map((min) => (
+              {ENGLISH_LEVELS.map((level) => {
+                let className = styles.option
+                if (englishLevel === level.code) {
+                  className = `${styles.option} ${styles.optionActive}`
+                }
+                return (
                   <button
-                    key={min}
-                    onClick={() => setDailyGoal(min)}
-                    className={`${styles.goalChip} ${dailyGoal === min ? styles.goalChipActive : ''}`}
+                    key={level.code}
+                    onClick={() => setEnglishLevel(level.code)}
+                    className={className}
+                    aria-pressed={englishLevel === level.code}
                   >
-                    {min} min
+                    <span className={styles.optionTitle}>{level.label}</span>
+                    <span className={styles.optionSub}>{level.description}</span>
                   </button>
-                ))}
-              </div>
+                )
+              })}
             </div>
 
-            <div className={styles.navRow}>
-              <button onClick={goBack} className={styles.secondaryBtn}>Back</button>
-              <button
-                onClick={goNext}
-                disabled={mutation.isPending}
-                className={styles.primaryBtn}
-              >
-                {mutation.isPending ? 'Saving...' : 'Start learning'}
-              </button>
+            <span className={styles.goalLabel}>Daily listening goal</span>
+            <div className={styles.goalRow}>
+              {GOAL_OPTIONS.map((minutes) => {
+                let className = styles.goalChip
+                if (dailyGoal === minutes) {
+                  className = `${styles.goalChip} ${styles.goalChipActive}`
+                }
+                return (
+                  <button
+                    key={minutes}
+                    onClick={() => setDailyGoal(minutes)}
+                    className={className}
+                    aria-pressed={dailyGoal === minutes}
+                  >
+                    {minutes} min
+                  </button>
+                )
+              })}
             </div>
-          </div>
+          </>
         )}
+
+        <div className={styles.navRow}>
+          {step > 0 && (
+            <button onClick={goBack} className={styles.secondaryBtn}>
+              Back
+            </button>
+          )}
+          <button onClick={goNext} className={styles.primaryBtn}>
+            {primaryLabel}
+          </button>
+        </div>
       </div>
     </div>
   )
-
 }

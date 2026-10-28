@@ -1,40 +1,35 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
-import Link from 'next/link'
-import dynamic from 'next/dynamic'
-import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
-import { getPodcasts, getProfile } from '@/lib/api'
-import { PodcastCard } from './components/PostcastCard'
-import { AddPodcastModal } from './components/AddPodcastModal'
-import { StatsBar } from './components/StatsBar'
-import styles from './page.module.css'
+import { useState } from "react"
+import Link from "next/link"
+import dynamic from "next/dynamic"
+import { useQuery } from "@tanstack/react-query"
+import { Plus } from "lucide-react"
+import { getPodcasts } from "@/lib/api"
+import { useProfile } from "@/lib/localStore"
+import { PodcastCard } from "./components/PostcastCard"
+import { AddPodcastModal } from "./components/AddPodcastModal"
+import { StatsBar } from "./components/StatsBar"
+import styles from "./page.module.css"
 
-const UserButton = dynamic(
-  () => import('@clerk/nextjs').then((mod) => mod.UserButton),
-  { ssr: false }
-)
-
+/// Loaded only in the browser, since it depends on localStorage
 const OnboardingModal = dynamic(
-  () => import('./components/OnboardingModal').then((mod) => mod.OnboardingModal),
+  () => import("./components/OnboardingModal").then((mod) => mod.OnboardingModal),
   { ssr: false }
 )
 
 export default function Home() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const profile = useProfile()
 
   const { data: podcasts, isLoading } = useQuery({
-    queryKey: ['podcasts'],
+    queryKey: ["podcasts"],
     queryFn: getPodcasts,
   })
 
-  const { data: profile } = useQuery({
-    queryKey: ['profile'],
-    queryFn: getProfile,
-  })
-
-  const showOnboarding = profile && !profile.onboarded
+  /// profile is undefined until the browser has read localStorage, so the
+  /// modal never flashes on screen for returning visitors
+  const showOnboarding = profile !== undefined && !profile.onboarded
 
   let libraryContent
   if (isLoading) {
@@ -106,7 +101,6 @@ export default function Home() {
               <Plus size={16} />
               Add podcast
             </button>
-            <UserButton />
           </div>
         </div>
       </header>
