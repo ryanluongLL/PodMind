@@ -1,19 +1,21 @@
-'use client'
+"use client"
 
-import { use } from 'react'
-import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
-import { getPodcast } from '@/lib/api'
-import { EpisodeRow } from '@/app/components/EpisodeRow'
-import { DifficultyBadge } from '@/app/components/DifficultyBadge'
-import styles from './page.module.css'
+import { use } from "react"
+import Link from "next/link"
+import { useQuery } from "@tanstack/react-query"
+import { ArrowLeft } from "lucide-react"
+import { getPodcast } from "@/lib/api"
+import { useFavorites } from "@/lib/localStore"
+import { EpisodeRow } from "@/app/components/EpisodeRow"
+import { DifficultyBadge } from "@/app/components/DifficultyBadge"
+import styles from "./page.module.css"
 
 export default function PodcastDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const favorites = useFavorites()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['podcast', id],
+    queryKey: ["podcast", id],
     queryFn: () => getPodcast(id),
   })
 
@@ -35,7 +37,16 @@ export default function PodcastDetailPage({ params }: { params: Promise<{ id: st
 
   const { podcast, episodes } = data
 
-  const transcribedCount = episodes.filter((ep) => ep.transcript_status === 'done').length
+  /// Favorites first, then newest first (the order the backend returns).
+  /// Array sort is stable, so episodes keep their date order within each group.
+  const favoriteIds = favorites ?? []
+  const sortedEpisodes = [...episodes].sort((a, b) => {
+    const aFav = favoriteIds.includes(a.id) ? 1 : 0
+    const bFav = favoriteIds.includes(b.id) ? 1 : 0
+    return bFav - aFav
+  })
+
+  const transcribedCount = episodes.filter((ep) => ep.transcript_status === "done").length
 
   const difficulties = episodes
     .filter((ep) => ep.difficulty)
@@ -90,7 +101,7 @@ export default function PodcastDetailPage({ params }: { params: Promise<{ id: st
       <section className={styles.episodeSection}>
         <h2 className={styles.sectionTitle}>Episodes</h2>
         <div className={styles.episodeList}>
-          {episodes.map((ep) => (
+          {sortedEpisodes.map((ep) => (
             <EpisodeRow
               key={ep.id}
               episode={{ ...ep, icon_url: ep.icon_url ?? podcast.icon_url }}

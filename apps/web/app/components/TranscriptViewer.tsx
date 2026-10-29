@@ -1,11 +1,12 @@
-'use client'
+"use client"
 
-import { useEffect, useRef, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { usePlayer } from '@/lib/playerStore'
-import { type Episode, type ExampleSentence, translateWord, getProfile, saveWord } from '@/lib/api'
-import { TranslationPopup } from './TranslationPopup'
-import styles from './TranscriptViewer.module.css'
+import { useEffect, useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { usePlayer } from "@/lib/playerStore"
+import { type Episode, type ExampleSentence, translateWord } from "@/lib/api"
+import { useProfile, useWords, saveWord } from "@/lib/localStore"
+import { TranslationPopup } from "./TranslationPopup"
+import styles from "./TranscriptViewer.module.css"
 
 interface PopupState {
   word: string
@@ -23,10 +24,10 @@ export function TranscriptViewer({
   podcastName: string
 }) {
   const { nowPlaying, currentTime, play, seekTo } = usePlayer()
-  const queryClient = useQueryClient()
+  const profile = useProfile()
+  const words = useWords()
   const activeRef = useRef<HTMLDivElement>(null)
   const [popup, setPopup] = useState<PopupState | null>(null)
-  const [savedWords, setSavedWords] = useState<Set<string>>(new Set())
 
   const segments = episode.transcript_segments ?? []
   const isThisEpisodePlaying = nowPlaying?.episodeId === episode.id
@@ -36,38 +37,24 @@ export function TranscriptViewer({
     activeIndex = segments.findIndex((s) => currentTime >= s.start && currentTime < s.end)
   }
 
-  // The user's native language decides the translation target
-  const { data: profile } = useQuery({
-    queryKey: ['profile'],
-    queryFn: getProfile,
-  })
-
   const { data: translationResult, isLoading: isTranslating } = useQuery({
-    queryKey: ['translation', popup?.word, popup?.context],
+    queryKey: ["translation", popup?.word, popup?.context, profile?.nativeLanguage],
     queryFn: () =>
-      translateWord(popup!.word, profile?.native_language ?? 'vi', popup!.context, episode.id),
-    enabled: !!popup && !!profile,
+      translateWord(popup!.word, profile!.nativeLanguage, popup!.context, episode.id),
+    enabled: popup !== null && profile !== undefined,
   })
 
-  const saveMutation = useMutation({
-    mutationFn: () =>
-      saveWord({
-        word: popup!.word,
-        translation: translationResult!.translation,
-        contextSentence: popup!.context,
-        episodeId: episode.id,
-        timestampSeconds: segments[popup!.segmentIndex]?.start ?? 0,
-      }),
-    onSuccess: () => {
-      setSavedWords((prev) => new Set([...prev, popup!.word]))
-      queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
-    },
-  })
+  /// Saved status comes from the learner's real vocabulary, so a word saved
+  /// in an earlier session still shows as saved.
+  let isSaved = false
+  if (popup && words) {
+    isSaved = words.some((w) => w.word === popup.word)
+  }
 
-  // Keep the line being spoken centered on screen
+  /// Keep the line being spoken centered on screen
   useEffect(() => {
     if (activeRef.current && activeIndex !== -1) {
-      activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      activeRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
     }
   }, [activeIndex])
 
@@ -91,8 +78,8 @@ export function TranscriptViewer({
     setTimeout(() => seekTo(seekTime), 200)
   }
 
-  // Plays the moment an example sentence was spoken. Examples from this
-  // episode just seek; examples from other episodes start that episode first.
+  /// Plays the moment an example sentence was spoken. Examples from this
+  /// episode just seek; examples from other episodes start that episode first.
   const handleExampleClick = (example: ExampleSentence) => {
     setPopup(null)
 
@@ -121,9 +108,9 @@ export function TranscriptViewer({
     segmentIndex: number,
     wordIndex: number
   ) => {
-    // Stop the click from reaching the line, which would seek the audio
+    /// Stop the click from reaching the line, which would seek the audio
     e.stopPropagation()
-    const clean = word.replace(/[^a-zA-Z'-]/g, '')
+    const clean = word.replace(/[^a-zA-Z'-]/g, "")
     if (clean.length < 2) {
       return
     }
@@ -140,7 +127,13 @@ export function TranscriptViewer({
     if (!popup || !translationResult) {
       return
     }
-    saveMutation.mutate()
+    saveWord({
+      word: popup.word,
+      translation: translationResult.translation,
+      contextSentence: popup.context,
+      episodeId: episode.id,
+      timestampSeconds: segments[popup.segmentIndex]?.start ?? 0,
+    })
   }
 
   return (
@@ -160,7 +153,7 @@ export function TranscriptViewer({
             onClick={() => seekInThisEpisode(segment.start)}
             className={segmentClass}
           >
-            {segment.text.split(' ').map((word, j) => {
+            {segment.text.split(" ").map((word, j) => {
               let wordClass = styles.word
               if (popup && popup.segmentIndex === i && popup.wordIndex === j) {
                 wordClass = `${styles.word} ${styles.wordActive}`
@@ -171,7 +164,7 @@ export function TranscriptViewer({
                   onClick={(e) => handleWordClick(e, word, segment.text, i, j)}
                   className={wordClass}
                 >
-                  {word}{' '}
+                  {word}{" "}
                 </span>
               )
             })}
@@ -188,8 +181,8 @@ export function TranscriptViewer({
           onSave={handleSaveWord}
           onClose={() => setPopup(null)}
           onExampleClick={handleExampleClick}
-          isSaved={savedWords.has(popup.word)}
-          isSaving={saveMutation.isPending}
+          isSaved={isSaved}
+          isSaving={false}
         />
       )}
     </div>

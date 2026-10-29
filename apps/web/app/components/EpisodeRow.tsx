@@ -1,19 +1,19 @@
-'use client'
+"use client"
 
-import { Play, Heart, Check, FileText, ExternalLink, ChevronDown, BarChart2 } from 'lucide-react'
-import { usePlayer } from '@/lib/playerStore'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { type Episode, toggleFavorite, transcribeEpisode, rateEpisodeDifficulty } from '@/lib/api'
-import { useState, useEffect } from 'react'
-import styles from './EpisodeRow.module.css'
-import { TranscriptViewer } from './TranscriptViewer'
-import { DifficultyBadge } from './DifficultyBadge'
+import { Play, Heart, Check, FileText, ExternalLink, ChevronDown, BarChart2 } from "lucide-react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState, useEffect } from "react"
+import { usePlayer } from "@/lib/playerStore"
+import { type Episode, transcribeEpisode, rateEpisodeDifficulty } from "@/lib/api"
+import { useFavorites, toggleFavorite } from "@/lib/localStore"
+import { TranscriptViewer } from "./TranscriptViewer"
+import { DifficultyBadge } from "./DifficultyBadge"
+import styles from "./EpisodeRow.module.css"
 
-// Shows an estimated progress percentage while an episode is transcribing.
-// Short episodes finish faster than we can poll real progress, so this
-// climbs on a timer and never reaches 100 on its own. When the backend
-// flips the status to done, this component unmounts and the
-// "Transcript ready" pill takes its place.
+/// Shows an estimated progress percentage while an episode is transcribing.
+/// Short episodes finish faster than we can poll real progress, so this
+/// climbs on a timer and never reaches 100 on its own. When the backend
+/// flips the status to done, this unmounts and "Transcript ready" replaces it.
 function TranscribingBadge({ podcastId }: { podcastId: string }) {
   const [estimate, setEstimate] = useState(0)
   const queryClient = useQueryClient()
@@ -35,20 +35,20 @@ function TranscribingBadge({ podcastId }: { podcastId: string }) {
 
   useEffect(() => {
     const poll = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ['podcast', podcastId] })
+      queryClient.invalidateQueries({ queryKey: ["podcast", podcastId] })
     }, 3000)
     return () => clearInterval(poll)
   }, [queryClient, podcastId])
 
   const pct = Math.min(Math.floor(estimate), 98)
 
-  let label = 'Generating embeddings'
+  let label = "Generating embeddings"
   if (pct < 20) {
-    label = 'Downloading audio'
+    label = "Downloading audio"
   } else if (pct < 40) {
-    label = 'Compressing audio'
+    label = "Compressing audio"
   } else if (pct < 65) {
-    label = 'Transcribing'
+    label = "Transcribing"
   }
 
   return (
@@ -63,25 +63,21 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
   const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState(false)
   const { play } = usePlayer()
+  const favorites = useFavorites()
 
-  const favoriteMutation = useMutation({
-    mutationFn: () => toggleFavorite(episode.id, !episode.is_favorite),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['podcast', episode.podcast_id] })
-    },
-  })
+  const isFavorite = favorites !== undefined && favorites.includes(episode.id)
 
   const transcribeMutation = useMutation({
     mutationFn: () => transcribeEpisode(episode.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['podcast', episode.podcast_id] })
+      queryClient.invalidateQueries({ queryKey: ["podcast", episode.podcast_id] })
     },
   })
 
   const difficultyMutation = useMutation({
     mutationFn: () => rateEpisodeDifficulty(episode.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['podcast', episode.podcast_id] })
+      queryClient.invalidateQueries({ queryKey: ["podcast", episode.podcast_id] })
     },
   })
 
@@ -99,23 +95,23 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
     })
   }
 
-  let dateStr = ''
+  let dateStr = ""
   if (episode.published_at) {
-    dateStr = new Date(episode.published_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    dateStr = new Date(episode.published_at).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     })
   }
 
   const hasTranscript =
-    episode.transcript_status === 'done' && (episode.transcript_segments?.length ?? 0) > 0
+    episode.transcript_status === "done" && (episode.transcript_segments?.length ?? 0) > 0
 
   const isProcessing =
-    episode.transcript_status === 'processing' || episode.transcript_status === 'pending'
+    episode.transcript_status === "processing" || episode.transcript_status === "pending"
 
   return (
-    <div className={`${styles.rowWrapper} ${expanded ? styles.rowExpanded : ''}`}>
+    <div className={`${styles.rowWrapper} ${expanded ? styles.rowExpanded : ""}`}>
       <div className={styles.row}>
         <button
           onClick={() => {
@@ -123,9 +119,9 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
               setExpanded((e) => !e)
             }
           }}
-          className={`${styles.chevronBtn} ${expanded ? styles.chevronOpen : ''}`}
+          className={`${styles.chevronBtn} ${expanded ? styles.chevronOpen : ""}`}
           disabled={!hasTranscript}
-          aria-label={hasTranscript ? 'Show transcript' : 'No transcript yet'}
+          aria-label={hasTranscript ? "Show transcript" : "No transcript yet"}
           aria-expanded={expanded}
         >
           <ChevronDown size={16} />
@@ -143,7 +139,7 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
           <div className={styles.meta}>
             <span>{dateStr}</span>
             {episode.difficulty && <DifficultyBadge level={episode.difficulty} />}
-            {episode.transcript_status === 'done' && (
+            {episode.transcript_status === "done" && (
               <span className={styles.transcriptBadge}>
                 <Check size={12} strokeWidth={2.5} />
                 Transcript ready
@@ -160,7 +156,7 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
             </button>
           )}
 
-          {episode.transcript_status === 'done' && !episode.difficulty && (
+          {episode.transcript_status === "done" && !episode.difficulty && (
             <button
               onClick={() => difficultyMutation.mutate()}
               disabled={difficultyMutation.isPending}
@@ -182,7 +178,7 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
             </button>
           )}
 
-          {episode.episode_url && episode.episode_url.startsWith('http') && (
+          {episode.episode_url && episode.episode_url.startsWith("http") && (
             <a
               href={episode.episode_url}
               target="_blank"
@@ -195,11 +191,12 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
           )}
 
           <button
-            onClick={() => favoriteMutation.mutate()}
-            className={`${styles.favoriteBtn} ${episode.is_favorite ? styles.favoriteActive : ''}`}
-            title={episode.is_favorite ? 'Remove favorite' : 'Add favorite'}
+            onClick={() => toggleFavorite(episode.id)}
+            className={`${styles.favoriteBtn} ${isFavorite ? styles.favoriteActive : ""}`}
+            title={isFavorite ? "Remove favorite" : "Add favorite"}
+            aria-pressed={isFavorite}
           >
-            <Heart size={16} fill={episode.is_favorite ? 'currentColor' : 'none'} />
+            <Heart size={16} fill={isFavorite ? "currentColor" : "none"} />
           </button>
         </div>
       </div>
