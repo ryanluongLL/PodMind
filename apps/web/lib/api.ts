@@ -49,11 +49,6 @@ export async function getPodcast(id: string): Promise<{ podcast: Podcast; episod
   return data
 }
 
-/// Removed in Phase C along with the delete button in PodcastCard
-export async function deletePodcast(id: string): Promise<void> {
-  await api.delete(`/podcasts/${id}`)
-}
-
 export async function transcribeEpisode(episodeId: string): Promise<void> {
   await api.post(`/episodes/${episodeId}/transcribe`)
 }
@@ -196,15 +191,4 @@ export async function discoverPodcasts(query: string): Promise<ItunesPodcast[]> 
   const res = await fetch(url)
   const data: ItunesSearchResponse = await res.json()
   return data.results.filter((r) => r.feedUrl)
-}
-
-/// Removed in Phase C along with Clerk
-export function setupAuthInterceptor(getToken: () => Promise<string | null>) {
-  api.interceptors.request.use(async (config) => {
-    const token = await getToken()
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  })
 }

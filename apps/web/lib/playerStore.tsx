@@ -32,6 +32,7 @@ interface PlayerContextType {
   nowPlaying: NowPlaying | null
   isPlaying: boolean
   currentTime: number
+  duration: number
   play: (episode: NowPlaying) => void
   togglePlayPause: () => void
   seekTo: (time: number) => void
@@ -48,12 +49,22 @@ interface LoadedAudio {
 
 const PlayerContext = createContext<PlayerContextType | null>(null)
 
+/// The audio element reports NaN before metadata loads and Infinity for
+/// live streams. Both are treated as unknown (0) so the UI never shows NaN.
+function readDuration(audio: HTMLAudioElement | null): number {
+  if (!audio || !Number.isFinite(audio.duration)) {
+    return 0
+  }
+  return audio.duration
+}
+
 /// Wraps the whole app so the audio element survives page navigation.
 /// The bottom player bar reads from this context.
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   const [loadedAudio, setLoadedAudio] = useState<LoadedAudio | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const listenStartRef = useRef<number | null>(null)
@@ -148,13 +159,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   return (
     <PlayerContext.Provider
-      value={{ nowPlaying, isPlaying, currentTime, play, togglePlayPause, seekTo, audioRef }}
+      value={{
+        nowPlaying,
+        isPlaying,
+        currentTime,
+        duration,
+        play,
+        togglePlayPause,
+        seekTo,
+        audioRef,
+      }}
     >
       {children}
       <audio
         ref={audioRef}
         src={audioSrc}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
+        onLoadedMetadata={() => setDuration(readDuration(audioRef.current))}
+        onDurationChange={() => setDuration(readDuration(audioRef.current))}
+        onEmptied={() => setDuration(0)}
         onPlay={() => {
           setIsPlaying(true)
           listenStartRef.current = Date.now()

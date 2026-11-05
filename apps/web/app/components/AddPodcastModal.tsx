@@ -1,188 +1,202 @@
-'use client'
+"use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { X, Search, Loader2, TrendingUp } from "lucide-react"
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { addPodcast, searchItunesPodcasts, getTrendingPodcasts } from "@/lib/api"
+import { toast } from "sonner"
+import {
+  addPodcast,
+  searchItunesPodcasts,
+  getTrendingPodcasts,
+  type ItunesPodcast,
+} from "@/lib/api"
 import { useDebounce } from "@/lib/useDebounce"
-import styles from './AddPodcastModal.module.css'
-import { ItunesPodcast } from '../../lib/api';
-import { toast } from 'sonner'
+import styles from "./AddPodcastModal.module.css"
 
+/// Search the iTunes directory and add a podcast to the shared library.
+/// Shows trending podcasts while the search box is empty.
 export function AddPodcastModal({ onClose }: { onClose: () => void }) {
-    const [search, setSearch] = useState('')
-    const [highlighted, setHighlighted] = useState(0)
-    const queryClient = useQueryClient()
-    const inputRef = useRef<HTMLInputElement>(null)
+  const [search, setSearch] = useState("")
+  const [highlighted, setHighlighted] = useState(0)
+  const queryClient = useQueryClient()
+  const inputRef = useRef<HTMLInputElement>(null)
 
-    ///debounce the search so we only hit iTunes after the user pauses typing
-    const debouncedSearch = useDebounce(search, 300)
+  /// Only hit iTunes after the user pauses typing
+  const debouncedSearch = useDebounce(search, 300)
+  const hasQuery = search.trim().length > 0
 
-    ///search iTunes when there's query
-    const { data: searchResults, isLoading: searchLoading } = useQuery({
-        queryKey: ['itunes-search', debouncedSearch],
-        queryFn: () => searchItunesPodcasts(debouncedSearch),
-        enabled: debouncedSearch.trim().length > 0,
-    })
+  const { data: searchResults, isLoading: searchLoading } = useQuery({
+    queryKey: ["itunes-search", debouncedSearch],
+    queryFn: () => searchItunesPodcasts(debouncedSearch),
+    enabled: debouncedSearch.trim().length > 0,
+  })
 
-    ///show trending when the search box is empty
-    const { data: trending, isLoading: trendingLoading } = useQuery({
-        queryKey: ['itunes-trending'],
-        queryFn: getTrendingPodcasts,
-        enabled: search.trim().length === 0,
-        staleTime: 1000 * 60 * 60, ///cache for an hour
-    })
+  const { data: trending, isLoading: trendingLoading } = useQuery({
+    queryKey: ["itunes-trending"],
+    queryFn: getTrendingPodcasts,
+    enabled: !hasQuery,
+    /// Cache for an hour, the chart barely changes
+    staleTime: 1000 * 60 * 60,
+  })
 
+  const displayList = hasQuery ? searchResults : trending
+  const isLoading = hasQuery ? searchLoading : trendingLoading
 
-    ///pick which list to display based on whether the user has typed anything
-    const displayList = search.trim() ? searchResults : trending
-    const isLoading = search.trim() ? searchLoading : trendingLoading
+  /// Reset the highlighted row whenever the search changes. Comparing with
+  /// the previous search during render avoids an extra render from an effect.
+  const [lastSearch, setLastSearch] = useState(debouncedSearch)
+  if (debouncedSearch !== lastSearch) {
+    setLastSearch(debouncedSearch)
+    setHighlighted(0)
+  }
 
-    ///add the selected podcast to the user's library by feedUrl
-    const addMutation = useMutation({
-        mutationFn: (podcast: ItunesPodcast) => addPodcast(podcast.feedUrl, podcast.artworkUrl600),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['podcasts'] })
-            toast.success('Podcast added to your library!')
-            onClose()
-        },
-        onError: () => {
-            toast.error('Failed to add podcast. Try a different one.')
-        }
-    })
+  /// Never point past the end of the list, for example after switching
+  /// from the long trending list to a short set of search results
+  let activeIndex = 0
+  if (displayList && displayList.length > 0) {
+    activeIndex = Math.min(highlighted, displayList.length - 1)
+  }
 
+  const addMutation = useMutation({
+    mutationFn: (podcast: ItunesPodcast) => addPodcast(podcast.feedUrl, podcast.artworkUrl600),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["podcasts"] })
+      toast.success("Podcast added to your library")
+      onClose()
+    },
+    onError: () => {
+      toast.error("Couldn't add that podcast. Try a different one.")
+    },
+  })
 
-    ///reset highlighted item when results change
-    useEffect(() => {
-        setHighlighted(0)
-    }, [debouncedSearch])
+  /// Focus the search box when the modal opens. This touches the DOM, not
+  /// React state, so it belongs in an effect.
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
 
-
-    ///auto-focus the input when modal opens
-    useEffect(() => {
-        inputRef.current?.focus()
-    }, [])
-
-    ///keyboard navigation: arrow keys to move, enter to select, escape to close
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (!displayList || displayList.length === 0) return
-        if (e.key === 'ArrowDown') {
-            e.preventDefault()
-            setHighlighted((h) => Math.min(h+1, displayList.length - 1))
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault()
-            setHighlighted((h) => Math.max(h - 1, 0))
-        } else if (e.key === 'Enter') {
-            e.preventDefault()
-            const podcast = displayList[highlighted]
-            if(podcast) addMutation.mutate(podcast)
-        } else if (e.key === 'Escape') {
-            onClose()
-        }
+  /// Arrow keys move the highlight, Enter adds it, Escape closes the modal.
+  /// Escape is checked first so it works even while results are loading.
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      onClose()
+      return
     }
+    if (!displayList || displayList.length === 0) {
+      return
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setHighlighted(Math.min(activeIndex + 1, displayList.length - 1))
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setHighlighted(Math.max(activeIndex - 1, 0))
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      const podcast = displayList[activeIndex]
+      if (podcast && !addMutation.isPending) {
+        addMutation.mutate(podcast)
+      }
+    }
+  }
 
-    return (
-        <div className={styles.overlay} onClick={onClose}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-                <div className={styles.header}>
-                    <h2 className={styles.title}>Add a podcast</h2>
-                    <button onClick={onClose} className={styles.closeBtn}>
-                        <X size={20} />
-                    </button>
-                </div>
-
-                <div className={styles.searchWrapper}>
-                    <Search size={18} className={styles.searchIcon} />
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Search podcasts..."
-                        className={styles.input}
-                    />
-                    {searchLoading && search.trim() && (
-                        <Loader2 size={18} className={styles.spinner} />
-                    )}
-                </div>
-
-                {!search.trim() && trending && trending.length > 0 && (
-                    <div className={styles.sectionHeader}>
-                        <TrendingUp size={14} />
-                        <span>Trending</span>
-                    </div>
-                )}
-
-                <div className={styles.results}>
-                    {isLoading && (
-                        <div className={styles.loadingState}>
-                            <Loader2 size={20} className={styles.spinner} />
-                        </div>
-                    )}
-
-                    {!isLoading && displayList && displayList.length === 0 && (
-                        <div className={styles.emptyState}>
-                            No podcasts found &ldquo;{search}&rdquo;
-                        </div>
-                    )}
-
-                    {!isLoading && displayList?.map((podcast, i) => (
-                        <PodcastResultRow
-                            key={podcast.collectionId}
-                            podcast={podcast}
-                            isHighlighted={i === highlighted}
-                            isAdding={addMutation.isPending}
-                            onClick={() => addMutation.mutate(podcast)}
-                            onHover={() => setHighlighted(i)}
-                        />
-                    ))}
-                </div>
-
-                {addMutation.isError && (
-                    <p className={styles.error}>
-                        Failed to add podcast. Try a different one.
-                    </p>
-                )}
-            </div>
+  return (
+    <div className={styles.overlay} onClick={onClose}>
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-podcast-title"
+      >
+        <div className={styles.header}>
+          <h2 id="add-podcast-title" className={styles.title}>
+            Add a podcast
+          </h2>
+          <button onClick={onClose} className={styles.closeBtn} aria-label="Close">
+            <X size={20} />
+          </button>
         </div>
-    )
+
+        <div className={styles.searchWrapper}>
+          <Search size={18} className={styles.searchIcon} aria-hidden="true" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Search podcasts by name or topic"
+            aria-label="Search podcasts"
+            className={styles.input}
+          />
+          {searchLoading && hasQuery && <Loader2 size={18} className={styles.spinner} />}
+        </div>
+
+        {!hasQuery && trending && trending.length > 0 && (
+          <div className={styles.sectionHeader}>
+            <TrendingUp size={14} aria-hidden="true" />
+            <span>Trending</span>
+          </div>
+        )}
+
+        <div className={styles.results}>
+          {isLoading && (
+            <div className={styles.loadingState}>
+              <Loader2 size={20} className={styles.spinner} />
+            </div>
+          )}
+
+          {!isLoading && displayList && displayList.length === 0 && (
+            <div className={styles.emptyState}>No podcasts match &ldquo;{search}&rdquo;</div>
+          )}
+
+          {!isLoading &&
+            displayList?.map((podcast, i) => (
+              <PodcastResultRow
+                key={podcast.collectionId}
+                podcast={podcast}
+                isHighlighted={i === activeIndex}
+                isAdding={addMutation.isPending}
+                onClick={() => addMutation.mutate(podcast)}
+                onHover={() => setHighlighted(i)}
+              />
+            ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
-///individual podcast row in the dropdown
+/// One result row: artwork, title, host, and episode count
 function PodcastResultRow({
-    podcast,
-    isHighlighted,
-    isAdding,
-    onClick,
-    onHover,
+  podcast,
+  isHighlighted,
+  isAdding,
+  onClick,
+  onHover,
 }: {
-    podcast: ItunesPodcast
-    isHighlighted: boolean
-    isAdding: boolean
-    onClick: () => void
-    onHover:() => void
+  podcast: ItunesPodcast
+  isHighlighted: boolean
+  isAdding: boolean
+  onClick: () => void
+  onHover: () => void
 }) {
-    return (
-        <button
-            onClick={onClick}
-            onMouseEnter={onHover}
-            disabled={isAdding}
-            className={`${styles.resultRow} ${isHighlighted ? styles.resultHighlighted : ''}`}
-        >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-                src={podcast.artworkUrl100}
-                alt={podcast.trackName}
-                className={styles.resultArt}
-            />
-            <div className={styles.resultInfo}>
-                <h3 className={styles.resultTitle}>{podcast.trackName}</h3>
-                <p className={styles.resultMeta}>
-                    {podcast.artistName} · {podcast.trackCount} episodes
-                </p>
-            </div>
-        </button>
-    )
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={onHover}
+      disabled={isAdding}
+      className={`${styles.resultRow} ${isHighlighted ? styles.resultHighlighted : ""}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={podcast.artworkUrl100} alt="" className={styles.resultArt} />
+      <div className={styles.resultInfo}>
+        <h3 className={styles.resultTitle}>{podcast.trackName}</h3>
+        <p className={styles.resultMeta}>
+          {podcast.artistName} · {podcast.trackCount} episodes
+        </p>
+      </div>
+    </button>
+  )
 }

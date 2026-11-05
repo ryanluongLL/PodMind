@@ -1,24 +1,18 @@
-'use client'
+"use client"
 
+import { useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { useState, useEffect } from "react"
-import { useAuth } from "@clerk/nextjs"
-import {setupAuthInterceptor} from '@/lib/api'
 import { PlayerProvider } from "@/lib/playerStore"
 
+/// App wide providers: React Query for server data (the shared podcast
+/// library) and the audio player. Personal data lives in localStorage and
+/// is read through the hooks in lib/localStore, so it needs no provider.
 export function Providers({ children }: { children: React.ReactNode }) {
-    const [queryClient] = useState(() => new QueryClient())
-    const { getToken } = useAuth()
-    ///wire up the Axios interceptor once on mount so every API call automatically includes the Clerk JWT in the Authorization header
-    useEffect(() => {
-        setupAuthInterceptor(getToken)
-    }, [getToken])
+  const [queryClient] = useState(() => new QueryClient())
 
-    return (
-        <QueryClientProvider client={queryClient}>
-            <PlayerProvider>
-                {children}
-            </PlayerProvider>
-        </QueryClientProvider>
+  return (
+    <QueryClientProvider client={queryClient}>
+      <PlayerProvider>{children}</PlayerProvider>
+    </QueryClientProvider>
   )
 }
