@@ -8,7 +8,9 @@ import {
   cadenceLabel,
   timeAgo,
   scoreFit,
+  previewFromFeed,
   DESCRIPTION_MAX_CHARS,
+  RECENT_EPISODES,
   type FitInput,
 } from "./feedPreview.js"
 
@@ -210,5 +212,82 @@ describe("scoreFit", () => {
     const fit = scoreFit({ ...base, isEnglish: null })
     expect(fit.level).toBe("hard")
     expect(fit.reasons).toEqual([])
+  })
+})
+
+describe("previewFromFeed", () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const now = Date.UTC(2026, 10, 9, 12)
+
+  function weeklyItems(count: number, newestDaysAgo: number, duration: string) {
+    const items = []
+    for (let i = 0; i < count; i++) {
+      items.push({
+        isoDate: new Date(now - (newestDaysAgo + i * 7) * DAY).toISOString(),
+        itunes: { duration },
+      })
+    }
+    return items
+  }
+
+  it("summarizes a short weekly learner show", () => {
+    const preview = previewFromFeed(
+      {
+        description: "<p>Learn English with short stories.</p>",
+        language: "en-us",
+        items: weeklyItems(12, 2, "8:00"),
+      },
+      "Language Learning",
+      now
+    )
+    expect(preview.description).toBe("Learn English with short stories.")
+    expect(preview.medianMinutes).toBe(8)
+    expect(preview.cadence).toBe("New episodes weekly")
+    expect(preview.daysSinceLastEpisode).toBe(2)
+    expect(preview.isEnglish).toBe(true)
+    expect(preview.fit.level).toBe("great")
+  })
+
+  it("hides the cadence for a show that stopped publishing", () => {
+    const preview = previewFromFeed({ items: weeklyItems(5, 150, "600") }, "History", now)
+    expect(preview.cadence).toBeNull()
+    expect(preview.daysSinceLastEpisode).toBe(150)
+    expect(preview.fit.reasons).toContain("Was weekly, last episode 5 months ago")
+  })
+
+  it("only looks at the most recent episodes, whatever order the feed uses", () => {
+    const recent = weeklyItems(RECENT_EPISODES, 1, "5:00")
+    const old = []
+    for (let i = 0; i < 20; i++) {
+      old.push({ isoDate: new Date(now - (400 + i) * DAY).toISOString(), itunes: { duration: "2:00:00" } })
+    }
+    const preview = previewFromFeed({ items: [...old, ...recent].reverse() }, "", now)
+    expect(preview.medianMinutes).toBe(5)
+    expect(preview.cadence).toBe("New episodes weekly")
+  })
+
+  it("falls back to the iTunes summary and skips undated episodes", () => {
+    const preview = previewFromFeed(
+      {
+        itunes: { summary: "From iTunes." },
+        language: "es",
+        items: [{ pubDate: "not a date" }, { pubDate: new Date(now - DAY).toUTCString() }],
+      },
+      "",
+      now
+    )
+    expect(preview.description).toBe("From iTunes.")
+    expect(preview.isEnglish).toBe(false)
+    expect(preview.medianMinutes).toBeNull()
+    expect(preview.cadence).toBeNull()
+    expect(preview.daysSinceLastEpisode).toBe(1)
+  })
+
+  it("handles an empty feed", () => {
+    const preview = previewFromFeed({ items: [] }, "", now)
+    expect(preview.description).toBe("")
+    expect(preview.medianMinutes).toBeNull()
+    expect(preview.daysSinceLastEpisode).toBeNull()
+    expect(preview.isEnglish).toBeNull()
   })
 })

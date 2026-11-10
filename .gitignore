@@ -7,3 +7,4 @@ dist
 apps/server/audio_cache
 .vercel
 .env*.local
+coverage/

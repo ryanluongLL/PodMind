@@ -7,8 +7,32 @@ export interface LearnerFit {
   reasons: string[]
 }
 
+export interface DiscoverPreview {
+  description: string
+  medianMinutes: number | null
+  cadence: string | null
+  daysSinceLastEpisode: number | null
+  isEnglish: boolean | null
+  fit: LearnerFit
+}
+
+/// The parts of an rss-parser result that a preview needs. The route passes
+/// the parsed feed straight in, and tests pass plain objects.
+export interface FeedInput {
+  description?: string
+  language?: string
+  itunes?: { summary?: string }
+  items: {
+    isoDate?: string
+    pubDate?: string
+    itunes?: { duration?: string | number }
+  }[]
+}
+
 export const DESCRIPTION_MAX_CHARS = 240
 export const STALE_AFTER_DAYS = 90
+export const RECENT_EPISODES = 10
+const DAY_MS = 24 * 60 * 60 * 1000
 
 /// The server downloads URLs that come from the browser, so only allow public
 /// http(s) addresses. This blocks the common ways of pointing the server at its
@@ -231,4 +255,69 @@ export function scoreFit(input: FitInput): LearnerFit {
     return { level: "good", label: "Good for learners", reasons }
   }
   return { level: "hard", label: "Harder for learners", reasons }
+}
+
+/// Turns a parsed feed into a learner focused preview. "now" is passed in
+/// (milliseconds, like Date.now()) so tests can fix the current time.
+export function previewFromFeed(feed: FeedInput, genre: string, now: number): DiscoverPreview {
+  const description = cleanDescription(feed.description ?? feed.itunes?.summary ?? "")
+
+  /// Most recent episodes first, with valid dates only
+  const dated = feed.items
+    .map((item) => ({
+      time: new Date(item.isoDate ?? item.pubDate ?? "").getTime(),
+      seconds: parseDurationSeconds(item.itunes?.duration),
+    }))
+    .filter((item) => !Number.isNaN(item.time))
+    .sort((a, b) => b.time - a.time)
+    .slice(0, RECENT_EPISODES)
+
+  const durations: number[] = []
+  for (const item of dated) {
+    if (item.seconds !== null && item.seconds > 0) {
+      durations.push(item.seconds)
+    }
+  }
+  const medianSeconds = median(durations)
+  let medianMinutes: number | null = null
+  if (medianSeconds !== null) {
+    medianMinutes = Math.max(1, Math.round(medianSeconds / 60))
+  }
+
+  const gaps: number[] = []
+  for (let i = 1; i < dated.length; i++) {
+    const newer = dated[i - 1]
+    const older = dated[i]
+    if (newer && older) {
+      gaps.push((newer.time - older.time) / DAY_MS)
+    }
+  }
+  const gapDays = median(gaps)
+
+  let daysSinceLast: number | null = null
+  const latest = dated[0]
+  if (latest) {
+    daysSinceLast = Math.max(0, Math.floor((now - latest.time) / DAY_MS))
+  }
+
+  let isEnglish: boolean | null = null
+  if (feed.language) {
+    isEnglish = feed.language.toLowerCase().startsWith("en")
+  }
+
+  /// Only report a current schedule for shows that are still publishing
+  let cadence: string | null = null
+  const isStale = daysSinceLast !== null && daysSinceLast > STALE_AFTER_DAYS
+  if (gapDays !== null && !isStale) {
+    cadence = cadenceLabel(gapDays)
+  }
+
+  return {
+    description,
+    medianMinutes,
+    cadence,
+    daysSinceLastEpisode: daysSinceLast,
+    isEnglish,
+    fit: scoreFit({ genre, medianMinutes, gapDays, daysSinceLast, isEnglish }),
+  }
 }
