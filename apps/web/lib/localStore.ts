@@ -150,14 +150,18 @@ function newId(): string {
 }
 
 /// Saving the same word twice returns the existing entry, so its review
-/// history is never reset by an accidental second save.
-export function saveWord(input: {
-  word: string
-  translation: string
-  contextSentence: string
-  episodeId: string
-  timestampSeconds: number
-}): SavedWord {
+/// history is never reset by an accidental second save. "today" defaults to
+/// the real date and is only passed in by tests.
+export function saveWord(
+  input: {
+    word: string
+    translation: string
+    contextSentence: string
+    episodeId: string
+    timestampSeconds: number
+  },
+  today: string = dateKey()
+): SavedWord {
   const words = getWords()
   const existing = words.find((w) => w.word === input.word)
   if (existing) {
@@ -173,7 +177,7 @@ export function saveWord(input: {
     timestampSeconds: input.timestampSeconds,
     easeFactor: 2.5,
     intervalDays: 1,
-    nextReviewDate: dateKey(),
+    nextReviewDate: today,
     reviewCount: 0,
     createdAt: new Date().toISOString(),
   }
@@ -217,7 +221,11 @@ export function previewInterval(word: SavedWord, rating: ReviewRating): number {
   return nextInterval(word.intervalDays, word.easeFactor, rating)
 }
 
-export function reviewWord(id: string, rating: ReviewRating): SavedWord | null {
+export function reviewWord(
+  id: string,
+  rating: ReviewRating,
+  today: string = dateKey()
+): SavedWord | null {
   const words = getWords()
   const index = words.findIndex((w) => w.id === id)
   const word = words[index]
@@ -233,14 +241,14 @@ export function reviewWord(id: string, rating: ReviewRating): SavedWord | null {
     ...word,
     intervalDays,
     easeFactor,
-    nextReviewDate: addDays(dateKey(), intervalDays),
+    nextReviewDate: addDays(today, intervalDays),
     reviewCount: word.reviewCount + 1,
   }
 
   const next = [...words]
   next[index] = updated
   writeJson(KEYS.vocabulary, next)
-  recordActivity(0)
+  recordActivity(0, today)
   return updated
 }
 
@@ -280,8 +288,7 @@ export function getActivity(): Activity {
   return parseActivity(readRaw(KEYS.activity))
 }
 
-export function recordActivity(minutes: number): void {
-  const today = dateKey()
+export function recordActivity(minutes: number, today: string = dateKey()): void {
   const yesterday = addDays(today, -1)
   const activity = getActivity()
 
