@@ -81,6 +81,27 @@ export function adjustForSpeed(level: CefrLevel, wordsPerMinute: number): CefrLe
   return CEFR_LEVELS[index] ?? level
 }
 
+export interface TimedSegment {
+  start: number
+  end: number
+  text: string
+}
+
+/// Speaking speed from Whisper segments: words in the transcript divided by
+/// the minutes up to the end of the last segment. Returns 0 (unknown) when
+/// there are no segments or no usable timing.
+export function wordsPerMinute(fullText: string, segments: TimedSegment[] | null): number {
+  if (!segments || segments.length === 0) {
+    return 0
+  }
+  const lastSegment = segments[segments.length - 1]
+  const durationMinutes = (lastSegment?.end ?? 0) / 60
+  if (durationMinutes <= 0) {
+    return 0
+  }
+  return Math.round(splitWords(fullText).length / durationMinutes)
+}
+
 export interface ReadabilityResult {
   level: CefrLevel
   fleschScore: number

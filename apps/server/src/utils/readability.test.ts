@@ -6,6 +6,7 @@ import {
   levelFromFlesch,
   adjustForSpeed,
   estimateDifficulty,
+  wordsPerMinute,
 } from "./readability.js"
 
 describe("countSyllables", () => {
@@ -110,5 +111,28 @@ describe("estimateDifficulty", () => {
     const result = estimateDifficulty("", 0)
     expect(result.avgSentenceLength).toBe(0)
     expect(result.avgSyllablesPerWord).toBe(0)
+  })
+})
+
+describe("wordsPerMinute", () => {
+  const twoMinutes = [
+    { start: 0, end: 60, text: "first" },
+    { start: 60, end: 120, text: "second" },
+  ]
+
+  it("divides the word count by the minutes up to the last segment", () => {
+    const text = "word ".repeat(240).trim()
+    expect(wordsPerMinute(text, twoMinutes)).toBe(120)
+  })
+
+  it("does not count extra spaces or line breaks as words", () => {
+    const text = "one  two\n\nthree   four"
+    expect(wordsPerMinute(text, [{ start: 0, end: 60, text }])).toBe(4)
+  })
+
+  it("returns 0 when timing is missing or unusable", () => {
+    expect(wordsPerMinute("some words", null)).toBe(0)
+    expect(wordsPerMinute("some words", [])).toBe(0)
+    expect(wordsPerMinute("some words", [{ start: 0, end: 0, text: "" }])).toBe(0)
   })
 })
