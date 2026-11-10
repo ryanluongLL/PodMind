@@ -147,7 +147,6 @@ export interface ItunesPodcast {
   feedUrl: string
   primaryGenreName: string
   trackCount: number
-  description?: string
   contentAdvisoryRating?: string
 }
 
@@ -187,8 +186,37 @@ export async function discoverPodcasts(query: string): Promise<ItunesPodcast[]> 
   if (!query.trim()) {
     return []
   }
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=podcast&entity=podcast&limit=5`
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=podcast&entity=podcast&limit=8`
   const res = await fetch(url)
   const data: ItunesSearchResponse = await res.json()
   return data.results.filter((r) => r.feedUrl)
+}
+
+/// Discover previews: read from each podcast's own feed on the server, with a
+/// rule based learner fit score. iTunes search results have no description,
+/// so this is where the description comes from.
+
+export interface LearnerFit {
+  level: "great" | "good" | "hard"
+  label: string
+  reasons: string[]
+}
+
+export interface DiscoverPreview {
+  description: string
+  medianMinutes: number | null
+  cadence: string | null
+  daysSinceLastEpisode: number | null
+  isEnglish: boolean | null
+  fit: LearnerFit
+}
+
+export async function getDiscoverPreviews(
+  podcasts: { feedUrl: string; genre: string }[]
+): Promise<Record<string, DiscoverPreview | null>> {
+  const { data } = await api.post<{ previews: Record<string, DiscoverPreview | null> }>(
+    "/discover/preview",
+    { podcasts }
+  )
+  return data.previews
 }
