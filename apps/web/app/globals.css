@@ -11,11 +11,13 @@
   --border: #E7E0D5;
   --border-hover: #D2C8B8;
 
-  /* Text (all pass 4.5:1 on --bg except --text-faint, which is decorative only) */
+  /* Text. Every level passes WCAG AA (4.5:1) on --bg, --bg-card, and
+     --bg-card-hover, since all four are used for real text. Lighthouse checks
+     this in CI. */
   --text: #1F2328;
   --text-muted: #4B5563;
-  --text-dim: #6B7280;
-  --text-faint: #A3A9B1;
+  --text-dim: #5C6370;
+  --text-faint: #666C75;
 
   /* Primary action: monochrome ink */
   --accent: #1F2328;

@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "e2e:server": "tsx src/e2e/server.ts"
+    "e2e:server": "tsx src/e2e/server.ts",
+    "perf:api": "tsx src/perf/loadTest.ts"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +39,7 @@
     "wordnet-db": "^3.1.14"
   },
   "devDependencies": {
+    "@types/autocannon": "^7.12.7",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/fluent-ffmpeg": "^2.1.28",
@@ -45,6 +47,7 @@
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.1.0",
+    "autocannon": "^9.0.0",
     "supertest": "^7.3.2",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.21.0",

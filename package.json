@@ -17,6 +17,9 @@
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "test:integration": "npm run test:integration --workspace server",
     "test:e2e": "npm run test:e2e --workspace web",
+    "perf:api": "npm run perf:api --workspace server",
+    "perf:bundle": "npm run perf:bundle --workspace web",
+    "perf:lighthouse": "npm run perf:lighthouse --workspace web",
     "build": "npm run build --workspaces --if-present",
     "check": "npm run lint && npm run typecheck && npm run test:coverage && npm run build"
   },

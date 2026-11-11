@@ -2,7 +2,9 @@ import Link from "next/link"
 import type { Podcast } from "@/lib/api"
 import styles from "./PostcastCard.module.css"
 
-/// One podcast in the library grid. The cover art is the card.
+/// One podcast in the library grid. The cover art is the card. The title is
+/// an h2 because the page heading ("Your library") is the h1, and screen
+/// reader users jump between headings by level.
 export function PodcastCard({ podcast }: { podcast: Podcast }) {
   return (
     <Link href={`/podcast/${podcast.id}`} className={styles.card}>
@@ -16,7 +18,7 @@ export function PodcastCard({ podcast }: { podcast: Podcast }) {
           </div>
         )}
       </div>
-      <h3 className={styles.title}>{podcast.name}</h3>
+      <h2 className={styles.title}>{podcast.name}</h2>
       <p className={styles.episodeCount}>{podcast.episode_count} episodes</p>
     </Link>
   )

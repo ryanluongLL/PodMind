@@ -2,10 +2,33 @@
   display: inline-flex;
   align-items: center;
   padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-control);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  border: 1px solid;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
   white-space: nowrap;
+}
+
+/* A1, A2: 5.5:1 on its background */
+.easy {
+  background: var(--success-soft);
+  border-color: #C5E3D2;
+  color: #276B4E;
+}
+
+/* B1, B2: 5.7:1 on its background */
+.medium {
+  background: var(--highlight-soft);
+  border-color: #F2DE95;
+  color: #8A5300;
+}
+
+/* C1, C2: 13:1 on its background */
+.hard {
+  background: var(--accent-soft);
+  border-color: var(--border);
+  color: var(--text);
 }
