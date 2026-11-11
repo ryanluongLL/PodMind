@@ -1,0 +1,15 @@
+{
+  /// Production build for Render: compiles src into dist, leaving out tests,
+  /// test helpers, and the Vitest configs, which never run in production.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/integration/**"]
+}

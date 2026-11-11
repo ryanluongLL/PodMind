@@ -1,0 +1,91 @@
+# Runs on every pull request and on every push to main.
+# A pull request can only merge into main when both jobs pass
+# (set up with a branch ruleset on GitHub).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch cancels the run that is still going
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# The workflow only needs to read the code
+permissions:
+  contents: read
+
+env:
+  # Tests replace the Podbean scraper with a fake, so CI never needs the
+  # browser Puppeteer would otherwise download on every install
+  PUPPETEER_SKIP_DOWNLOAD: "true"
+
+jobs:
+  checks:
+    name: Lint, types, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests with coverage limits
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The same Postgres 16 with pgvector image as docker-compose.yml.
+    # GitHub starts it next to the job and waits until it is ready.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: podmind
+          POSTGRES_PASSWORD: podmind
+          POSTGRES_DB: podmind
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U podmind"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Integration tests
+        run: npm run test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://podmind:podmind@localhost:5432/podmind_test
