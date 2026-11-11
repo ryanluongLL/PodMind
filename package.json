@@ -1,18 +1,26 @@
 {
   "name": "podmind",
   "private": true,
+  "version": "1.0.0",
+  "description": "Learn English from real podcasts: transcripts, word lookup, and spaced repetition",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspaces --if-present",
+    "test:integration": "npm run test:integration --workspace server",
+    "build": "npm run build --workspaces --if-present",
+    "check": "npm run lint && npm run typecheck && npm run test:coverage && npm run build"
   },
   "keywords": [],
-  "author": "",
+  "author": "Luan Luong",
   "license": "ISC",
   "type": "commonjs"
 }
