@@ -29,8 +29,10 @@ function reviewLabel(nextReviewDate: string): string {
 export default function VocabularyPage() {
   const words = useWords()
 
+  let savedCount = 0
   let dueCount = 0
   if (words) {
+    savedCount = words.length
     const today = dateKey()
     dueCount = words.filter((w) => w.nextReviewDate <= today).length
   }
@@ -90,7 +92,7 @@ export default function VocabularyPage() {
         <div>
           <h1 className={styles.title}>Vocabulary</h1>
           <p className={styles.subtitle}>
-            {words?.length ?? 0} words saved from your podcasts
+            {savedCount} {savedCount === 1 ? "word" : "words"} saved from your podcasts
           </p>
         </div>
         {dueCount > 0 && (

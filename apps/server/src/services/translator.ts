@@ -4,6 +4,9 @@ import * as deepl from "deepl-node"
 /// replace this whole module with a fake, so no test ever spends API credit.
 /// The client is created on first use, so the server can start (and the rest
 /// of the app keeps working) even when DEEPL_API_KEY is missing.
+///
+/// DEEPL_SERVER_URL is normally unset, which means the real DeepL API. The
+/// end to end tests point it at a local fake that answers the same way.
 
 let translator: deepl.Translator | null = null
 
@@ -13,7 +16,12 @@ function getTranslator(): deepl.Translator {
     if (!key) {
       throw new Error("DEEPL_API_KEY is not set")
     }
-    translator = new deepl.Translator(key)
+    const serverUrl = process.env.DEEPL_SERVER_URL
+    if (serverUrl) {
+      translator = new deepl.Translator(key, { serverUrl })
+    } else {
+      translator = new deepl.Translator(key)
+    }
   }
   return translator
 }

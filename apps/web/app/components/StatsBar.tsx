@@ -51,7 +51,7 @@ export function StatsBar() {
     <div className={styles.bar}>
       <p className={styles.line}>
         <span>{plural(streak, "day")} streak</span>
-        <span className={styles.dot} aria-hidden="true">.</span>
+        <span className={styles.dot} aria-hidden="true">·</span>
         <span>
           {minutesToday} of {profile.dailyGoalMinutes} min today
         </span>
