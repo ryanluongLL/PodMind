@@ -1,54 +1,68 @@
-import { Router } from 'express'
-import fs from 'fs'
-import path from 'path'
+import { Router } from "express"
+import fs from "node:fs"
+import path from "node:path"
+import { isUuid } from "../utils/ids.js"
+import { parseRange } from "../utils/range.js"
 
 const router = Router()
-const AUDIO_STORAGE_DIR = path.join(process.cwd(), 'audio_cache')
 
-// GET /audio/:episodeId
-// Streams the cached compressed MP3 with byte range support so the browser
-// can seek, which click to jump in the transcript depends on.
-router.get('/:episodeId', (req, res) => {
+/// Tests point this at a temporary folder. In the app it stays audio_cache.
+function audioDir(): string {
+  return process.env.AUDIO_CACHE_DIR ?? path.join(process.cwd(), "audio_cache")
+}
+
+/// GET /audio/:episodeId
+/// Streams the cached compressed MP3 with byte range support so the browser
+/// can seek, which click to jump in the transcript depends on.
+router.get("/:episodeId", (req, res) => {
   const { episodeId } = req.params
 
-  // Episode IDs are UUIDs. Rejecting anything else also blocks path tricks
-  // like "../" from reaching the file system.
-  if (!/^[0-9a-f-]{36}$/i.test(episodeId)) {
-    res.status(400).json({ error: 'Invalid episode id' })
+  /// Episode ids are UUIDs. Rejecting anything else also blocks path tricks
+  /// like "../" from reaching the file system.
+  if (!isUuid(episodeId)) {
+    res.status(400).json({ error: "Invalid episode id" })
     return
   }
 
-  const filePath = path.join(AUDIO_STORAGE_DIR, `${episodeId}.mp3`)
+  const filePath = path.join(audioDir(), `${episodeId}.mp3`)
   if (!fs.existsSync(filePath)) {
-    res.status(404).json({ error: 'Audio not cached. Transcribe the episode first.' })
+    res.status(404).json({ error: "Audio not cached. Transcribe the episode first." })
     return
   }
 
-  const stat = fs.statSync(filePath)
-  const fileSize = stat.size
-  const range = req.headers.range
+  const fileSize = fs.statSync(filePath).size
+  const range = parseRange(req.headers.range, fileSize)
 
-  if (range) {
-    const parts = range.replace(/bytes=/, '').split('-')
-    const start = parseInt(parts[0] ?? '0', 10)
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
-    const chunkSize = end - start + 1
+  if (range.kind === "unsatisfiable") {
+    res.writeHead(416, { "Content-Range": `bytes */${fileSize}` })
+    res.end()
+    return
+  }
 
+  let stream: fs.ReadStream
+  if (range.kind === "partial") {
     res.writeHead(206, {
-      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunkSize,
-      'Content-Type': 'audio/mpeg',
+      "Content-Range": `bytes ${range.start}-${range.end}/${fileSize}`,
+      "Accept-Ranges": "bytes",
+      "Content-Length": range.end - range.start + 1,
+      "Content-Type": "audio/mpeg",
     })
-    fs.createReadStream(filePath, { start, end }).pipe(res)
+    stream = fs.createReadStream(filePath, { start: range.start, end: range.end })
   } else {
     res.writeHead(200, {
-      'Content-Length': fileSize,
-      'Content-Type': 'audio/mpeg',
-      'Accept-Ranges': 'bytes',
+      "Content-Length": fileSize,
+      "Content-Type": "audio/mpeg",
+      "Accept-Ranges": "bytes",
     })
-    fs.createReadStream(filePath).pipe(res)
+    stream = fs.createReadStream(filePath)
   }
+
+  /// A read error after the headers went out can only end the response
+  stream.on("error", (err) => {
+    console.error(`[audio] could not read ${episodeId}`, err)
+    res.destroy()
+  })
+  stream.pipe(res)
 })
 
 export default router

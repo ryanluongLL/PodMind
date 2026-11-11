@@ -67,3 +67,59 @@ export async function insertTranscript(
     [episodeId, fields.fullText ?? "", JSON.stringify(fields.segments ?? []), fields.status]
   )
 }
+
+/// A tiny dictionary, enough for Lesk to choose between meanings
+export async function insertSense(
+  lemma: string,
+  pos: string,
+  senseRank: number,
+  definition: string,
+  examples: string[] = []
+): Promise<number> {
+  const { rows } = await pool.query<{ id: number }>(
+    `INSERT INTO dictionary_senses (lemma, pos, sense_rank, definition, examples)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [lemma, pos, senseRank, definition, examples]
+  )
+  return rows[0]!.id
+}
+
+/// The real list stores how often each word appeared in the subtitles.
+/// Routes only read rank, so any count works here; this one shrinks with
+/// rank roughly the way real word counts do (Zipf's law).
+function countForRank(rank: number): number {
+  return Math.max(1, Math.round(10_000_000 / rank))
+}
+
+export async function insertFrequencies(ranks: Record<string, number>): Promise<void> {
+  for (const [word, rank] of Object.entries(ranks)) {
+    await pool.query(
+      `INSERT INTO word_frequency (word, rank, count) VALUES ($1, $2, $3)`,
+      [word, rank, countForRank(rank)]
+    )
+  }
+}
+
+export const EMBEDDING_SIZE = 1536
+
+/// A vector pointing along one axis. Two of these are identical (similarity
+/// 1) or completely unrelated (similarity 0), which keeps search results
+/// easy to predict.
+export function axisVector(axis: number): number[] {
+  const vector = new Array<number>(EMBEDDING_SIZE).fill(0)
+  vector[axis] = 1
+  return vector
+}
+
+export async function insertEmbedding(
+  episodeId: string,
+  chunkIndex: number,
+  chunkText: string,
+  vector: number[]
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO embeddings (episode_id, chunk_index, chunk_text, embedding)
+     VALUES ($1, $2, $3, $4::vector)`,
+    [episodeId, chunkIndex, chunkText, JSON.stringify(vector)]
+  )
+}

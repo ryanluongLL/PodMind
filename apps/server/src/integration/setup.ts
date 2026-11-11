@@ -9,12 +9,17 @@ import { pool } from "../db/index.js"
 vi.mock("../scrapers/rss.js", () => ({ scrapeRSS: vi.fn() }))
 vi.mock("../scrapers/podbean.js", () => ({ scrapePodbean: vi.fn() }))
 vi.mock("../jobs/queue.js", () => ({ enqueueTranscription: vi.fn() }))
+vi.mock("../services/translator.js", () => ({ translateWord: vi.fn() }))
+vi.mock("../services/embeddings.js", () => ({ embedQuery: vi.fn() }))
 
-/// Every test starts with an empty library. Dictionary tables are left
-/// alone, since tests only read from them.
+/// Every test starts from empty tables, so no test depends on another
 beforeEach(async () => {
   vi.clearAllMocks()
-  await pool.query("TRUNCATE podcasts, episodes, transcripts RESTART IDENTITY CASCADE")
+  await pool.query(
+    `TRUNCATE podcasts, episodes, transcripts, embeddings,
+              dictionary_senses, word_frequency, translation_cache
+     RESTART IDENTITY CASCADE`
+  )
 })
 
 afterAll(async () => {

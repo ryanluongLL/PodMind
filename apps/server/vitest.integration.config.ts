@@ -1,3 +1,5 @@
+import os from "node:os"
+import path from "node:path"
 import { defineConfig } from "vitest/config"
 import { TEST_DATABASE_URL } from "./src/integration/testDatabase"
 
@@ -20,6 +22,7 @@ export default defineConfig({
       DATABASE_URL: TEST_DATABASE_URL,
       DEEPL_API_KEY: "test-key",
       OPENAI_API_KEY: "test-key",
+      AUDIO_CACHE_DIR: path.join(os.tmpdir(), "podmind-audio-test"),
     },
   },
 })
