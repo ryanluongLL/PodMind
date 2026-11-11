@@ -8,3 +8,8 @@ apps/server/audio_cache
 .vercel
 .env*.local
 coverage/
+
+# Playwright end to end test output
+playwright-report/
+test-results/
+blob-report/

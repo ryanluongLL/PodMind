@@ -1,5 +1,5 @@
 # Runs on every pull request and on every push to main.
-# A pull request can only merge into main when both jobs pass
+# A pull request can only merge into main when all jobs pass
 # (set up with a branch ruleset on GitHub).
 name: CI
 
@@ -89,3 +89,57 @@ jobs:
         run: npm run test:integration
         env:
           TEST_DATABASE_URL: postgresql://podmind:podmind@localhost:5432/podmind_test
+
+  e2e:
+    name: End to end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Same database image as the integration job. The end to end server
+    # creates and fills its own podmind_e2e_test database.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: podmind
+          POSTGRES_PASSWORD: podmind
+          POSTGRES_DB: podmind
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U podmind"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: End to end tests
+        run: npm run test:e2e
+        env:
+          E2E_DATABASE_URL: postgresql://podmind:podmind@localhost:5432/podmind_e2e_test
+
+      # On failure, keep the HTML report, screenshots, videos, and traces.
+      # Download it from the run's Summary page and open index.html.
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 14
