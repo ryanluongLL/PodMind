@@ -13,3 +13,6 @@ coverage/
 playwright-report/
 test-results/
 blob-report/
+
+# Lighthouse CI reports
+.lighthouseci/

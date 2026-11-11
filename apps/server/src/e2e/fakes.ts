@@ -4,9 +4,10 @@ import type pg from "pg"
 /// Stand ins for everything outside PodMind that the end to end tests would
 /// otherwise reach: DeepL, a podcast's RSS feed, and its cover art. They
 /// answer in the same format as the real services, so the app code runs
-/// unchanged. Two extra routes let the browser tests reset and seed data.
+/// unchanged. Extra routes let the browser tests and the load test reset
+/// and seed data.
 ///
-/// This file only runs during end to end tests and is left out of the build.
+/// This file only runs during tests and is left out of the build.
 
 export const FAKE_FEED_PATH = "/feed.xml"
 export const SEED_PODCAST_NAME = "Slow English Stories"
@@ -134,6 +135,35 @@ async function seedTranscribedEpisode(pool: pg.Pool, baseUrl: string): Promise<{
   return { podcastId, episodeId }
 }
 
+/// Fills the library to a realistic size for the load test: many podcasts,
+/// each with many transcribed episodes, so slow queries show up the way they
+/// would on a real deployment. Uses the same transcript lines as above.
+async function seedBulkLibrary(pool: pg.Pool, baseUrl: string, podcasts: number, episodesEach: number): Promise<{ episodes: number }> {
+  const fullText = SEED_SEGMENTS.map((s) => s.text).join(" ")
+  await pool.query(
+    `INSERT INTO podcasts (name, rss_url, icon_url)
+     SELECT 'Bulk Podcast ' || g, $1 || '/bulk/' || g || '.xml', $1 || '/art.png'
+     FROM generate_series(1, $2) AS g`,
+    [baseUrl, podcasts]
+  )
+  await pool.query(
+    `INSERT INTO episodes (podcast_id, title, episode_url, audio_url, published_at)
+     SELECT p.id, 'Episode ' || e, p.rss_url || '#' || e, p.rss_url || '/' || e || '.mp3',
+            now() - (e || ' days')::interval
+     FROM podcasts p CROSS JOIN generate_series(1, $1) AS e
+     WHERE p.rss_url LIKE '%/bulk/%'`,
+    [episodesEach]
+  )
+  const inserted = await pool.query(
+    `INSERT INTO transcripts (episode_id, full_text, segments, status)
+     SELECT e.id, $1, $2::jsonb, 'done'
+     FROM episodes e
+     WHERE e.episode_url LIKE '%/bulk/%'`,
+    [fullText, JSON.stringify(SEED_SEGMENTS)]
+  )
+  return { episodes: inserted.rowCount ?? 0 }
+}
+
 export function createFakesServer(pool: pg.Pool, baseUrl: string): http.Server {
   return http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", baseUrl)
@@ -165,6 +195,12 @@ export function createFakesServer(pool: pg.Pool, baseUrl: string): http.Server {
       }
       if (req.method === "POST" && url.pathname === "/__seed/transcribed-episode") {
         sendJson(res, 200, await seedTranscribedEpisode(pool, baseUrl))
+        return
+      }
+      if (req.method === "POST" && url.pathname === "/__seed/bulk") {
+        const podcasts = Number(url.searchParams.get("podcasts") ?? 50)
+        const episodes = Number(url.searchParams.get("episodes") ?? 20)
+        sendJson(res, 200, await seedBulkLibrary(pool, baseUrl, podcasts, episodes))
         return
       }
 
