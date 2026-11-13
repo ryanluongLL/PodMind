@@ -8,10 +8,12 @@ import os from "os"
 import ffmpeg from "fluent-ffmpeg"
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg"
 import { feedTranscriptFor } from "../transcripts/feedTranscriptSource.js"
-import type { Segment } from "../transcripts/feedTranscript.js"
+import { providerFromEnv, transcribeFile, type ProviderName } from "../services/transcriber.js"
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path)
 
+/// Embeddings for semantic search still use OpenAI. They cost a fraction of
+/// a cent per episode, unlike transcription.
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const AUDIO_STORAGE_DIR = path.join(process.cwd(), "audio_cache")
@@ -20,9 +22,7 @@ if (!fs.existsSync(AUDIO_STORAGE_DIR)) {
   fs.mkdirSync(AUDIO_STORAGE_DIR, { recursive: true })
 }
 
-const WHISPER_MAX_BYTES = 25 * 1024 * 1024
-
-type TranscriptSource = "feed" | "openai"
+type TranscriptSource = "feed" | ProviderName
 
 function compressAudio(inputPath: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -72,32 +72,6 @@ async function cacheAudio(episodeId: string, audioUrl: string): Promise<string> 
   return compressedPath
 }
 
-/// Paid transcription. Only reached when the feed has no usable transcript.
-async function transcribeWithOpenAI(compressedPath: string): Promise<{ fullText: string; segments: Segment[] }> {
-  const compressedSize = fs.statSync(compressedPath).size
-  if (compressedSize > WHISPER_MAX_BYTES) {
-    throw new Error(
-      `Episode too long to transcribe: ${(compressedSize / 1024 / 1024).toFixed(1)} MB exceeds 25 MB limit`
-    )
-  }
-
-  /// verbose_json gives segment timestamps for the synchronized player
-  const transcription = await openai.audio.transcriptions.create({
-    file: fs.createReadStream(compressedPath),
-    model: "whisper-1",
-    response_format: "verbose_json",
-  })
-
-  return {
-    fullText: transcription.text,
-    segments: (transcription.segments ?? []).map((s) => ({
-      start: s.start,
-      end: s.end,
-      text: s.text.trim(),
-    })),
-  }
-}
-
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
 })
@@ -131,9 +105,14 @@ const worker = new Worker(
       let transcript = await feedTranscriptFor(episodeId)
       let source: TranscriptSource = "feed"
 
+      /// Paid only when the feed has nothing usable
       if (transcript === null) {
-        transcript = await transcribeWithOpenAI(compressedPath)
-        source = "openai"
+        const provider = providerFromEnv()
+        if (provider === null) {
+          throw new Error("No transcription provider configured: set GROQ_API_KEY or OPENAI_API_KEY")
+        }
+        transcript = await transcribeFile(compressedPath, provider)
+        source = provider.name
       }
 
       transcriptText = transcript.fullText

@@ -15,6 +15,7 @@ export default defineConfig({
         "src/nlp/wordInfo.ts",
         "src/transcripts/feedTranscript.ts",
         "src/transcripts/downloadTranscript.ts",
+        "src/services/transcriber.ts",
       ],
       exclude: ["**/*.test.ts"],
       thresholds: {
