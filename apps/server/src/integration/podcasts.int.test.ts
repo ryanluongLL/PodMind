@@ -84,6 +84,38 @@ describe("POST /podcasts", () => {
     expect(await countRows("episodes")).toBe(3)
   })
 
+  it("saves the transcript link the publisher puts in the feed", async () => {
+    const feed = fakeFeed()
+    feed.episodes[0]!.transcript = { url: "https://example.com/ep2.vtt", format: "vtt" }
+    vi.mocked(scrapeRSS).mockResolvedValue(feed)
+
+    await request(app).post("/podcasts").send({ url: FEED_URL })
+
+    const { rows } = await pool.query(
+      `SELECT title, transcript_url, transcript_format FROM episodes ORDER BY title`
+    )
+    expect(rows).toEqual([
+      { title: "Episode 1", transcript_url: null, transcript_format: null },
+      { title: "Episode 2", transcript_url: "https://example.com/ep2.vtt", transcript_format: "vtt" },
+    ])
+  })
+
+  it("adds a transcript link that appears after the episode was saved", async () => {
+    vi.mocked(scrapeRSS).mockResolvedValueOnce(fakeFeed())
+    await request(app).post("/podcasts").send({ url: FEED_URL })
+
+    const later = fakeFeed()
+    later.episodes[1]!.transcript = { url: "https://example.com/ep1.srt", format: "srt" }
+    vi.mocked(scrapeRSS).mockResolvedValueOnce(later)
+    await request(app).post("/podcasts").send({ url: FEED_URL })
+
+    const { rows } = await pool.query(
+      `SELECT transcript_url, transcript_format FROM episodes WHERE title = 'Episode 1'`
+    )
+    expect(rows).toEqual([{ transcript_url: "https://example.com/ep1.srt", transcript_format: "srt" }])
+    expect(await countRows("episodes")).toBe(2)
+  })
+
   it("uses the Podbean scraper for Podbean pages", async () => {
     const url = "https://www.podbean.com/podcast-detail/abc123/Slow-English"
     vi.mocked(scrapePodbean).mockResolvedValue(fakeFeed())

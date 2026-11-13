@@ -1,35 +1,95 @@
-import Parser from 'rss-parser'
+import Parser from "rss-parser"
+import { pickTranscript, type FeedTranscriptLink, type TranscriptFormat } from "../transcripts/feedTranscript.js"
 
-const parser = new Parser()
-
-export interface ParsedEpisode{
-    title: string
-    episodeUrl: string
-    audioUrl: string | null
-    iconUrl: string | null
-    publishedAt: Date | null
+/// A <podcast:transcript url="..." type="..." language="..."/> tag, as
+/// rss-parser hands it over: the tag's attributes live under "$".
+interface RawTranscriptTag {
+  $?: { url?: string; type?: string; language?: string }
 }
 
-export interface ParsedPodcast{
-    name: string
-    iconUrl: string | null
-    episodes: ParsedEpisode[]
+interface CustomItem {
+  transcripts?: RawTranscriptTag[]
+  itunes?: { image?: string }
 }
 
-export async function scrapeRSS(rssUrl: string): Promise<ParsedPodcast>{
-    const feed = await parser.parseURL(rssUrl)
+/// keepArray keeps every transcript tag, since one episode can link to
+/// several formats or languages and we pick the best one ourselves.
+const parser = new Parser<Record<string, unknown>, CustomItem>({
+  customFields: {
+    item: [["podcast:transcript", "transcripts", { keepArray: true }]],
+  },
+})
 
-    return {
-        name: feed.title ?? 'Unknown Podcast',
-        iconUrl: feed.image?.url ?? null,
-        episodes: feed.items.slice(0, 20).map((item) => ({
-            title: item.title ?? 'Untitled',
-            episodeUrl: item.link?.startsWith('http')
-                ? item.link
-                : item.guid ?? item.enclosure?.url ?? '',  // ← fallback chain
-            audioUrl: item.enclosure?.url ?? null,
-            iconUrl: item.itunes?.image ?? null,
-            publishedAt: item.pubDate ? new Date(item.pubDate) : null,
-        })),
+export const MAX_EPISODES = 20
+
+export interface ParsedEpisode {
+  title: string
+  episodeUrl: string
+  audioUrl: string | null
+  iconUrl: string | null
+  publishedAt: Date | null
+  /// The free transcript the publisher links in the feed, when there is one.
+  /// Optional because the Podbean scraper never finds one.
+  transcript?: { url: string; format: TranscriptFormat } | null
+}
+
+export interface ParsedPodcast {
+  name: string
+  iconUrl: string | null
+  episodes: ParsedEpisode[]
+}
+
+type Feed = Parser.Output<CustomItem>
+type FeedItem = Feed["items"][number]
+
+export function transcriptLinks(item: CustomItem): FeedTranscriptLink[] {
+  const links: FeedTranscriptLink[] = []
+  for (const tag of item.transcripts ?? []) {
+    const attributes = tag.$
+    if (!attributes?.url) {
+      continue
     }
+    const link: FeedTranscriptLink = { url: attributes.url }
+    if (attributes.type) {
+      link.type = attributes.type
+    }
+    if (attributes.language) {
+      link.language = attributes.language
+    }
+    links.push(link)
+  }
+  return links
+}
+
+/// The episode page link when it is a real web address, otherwise the guid,
+/// otherwise the audio file, so every episode still gets a unique key.
+function episodeUrlFor(item: FeedItem): string {
+  if (item.link?.startsWith("http")) {
+    return item.link
+  }
+  return item.guid ?? item.enclosure?.url ?? ""
+}
+
+export function mapFeed(feed: Feed): ParsedPodcast {
+  return {
+    name: feed.title ?? "Unknown Podcast",
+    iconUrl: feed.image?.url ?? null,
+    episodes: feed.items.slice(0, MAX_EPISODES).map((item) => ({
+      title: item.title ?? "Untitled",
+      episodeUrl: episodeUrlFor(item),
+      audioUrl: item.enclosure?.url ?? null,
+      iconUrl: item.itunes?.image ?? null,
+      publishedAt: item.pubDate ? new Date(item.pubDate) : null,
+      transcript: pickTranscript(transcriptLinks(item)),
+    })),
+  }
+}
+
+/// Parses feed XML that is already downloaded. Unit tests call this directly.
+export async function parseFeed(xml: string): Promise<ParsedPodcast> {
+  return mapFeed(await parser.parseString(xml))
+}
+
+export async function scrapeRSS(rssUrl: string): Promise<ParsedPodcast> {
+  return mapFeed(await parser.parseURL(rssUrl))
 }

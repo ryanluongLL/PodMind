@@ -58,11 +58,25 @@ router.post("/", async (req, res) => {
 
     const podcast = rows[0]
     for (const ep of parsed.episodes) {
+      /// An episode that is already saved keeps everything except its
+      /// transcript link, which publishers often add after the episode airs.
       await pool.query(
-        `INSERT INTO episodes (podcast_id, title, episode_url, audio_url, icon_url, published_at)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT DO NOTHING`,
-        [podcast.id, ep.title, ep.episodeUrl, ep.audioUrl, ep.iconUrl, ep.publishedAt]
+        `INSERT INTO episodes
+           (podcast_id, title, episode_url, audio_url, icon_url, published_at, transcript_url, transcript_format)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (episode_url, user_id) DO UPDATE
+         SET transcript_url = EXCLUDED.transcript_url,
+             transcript_format = EXCLUDED.transcript_format`,
+        [
+          podcast.id,
+          ep.title,
+          ep.episodeUrl,
+          ep.audioUrl,
+          ep.iconUrl,
+          ep.publishedAt,
+          ep.transcript?.url ?? null,
+          ep.transcript?.format ?? null,
+        ]
       )
     }
 
