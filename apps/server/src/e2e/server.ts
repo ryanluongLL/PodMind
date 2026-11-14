@@ -25,6 +25,9 @@ process.env.DEEPL_API_KEY = "e2e-key"
 process.env.DEEPL_SERVER_URL = FAKES_URL
 process.env.OPENAI_API_KEY = "e2e-key"
 process.env.AUDIO_CACHE_DIR = path.join(os.tmpdir(), "podmind-e2e-audio")
+/// No paid transcription in browser tests: the fake feed has no transcript
+/// links, so asking for one shows the daily limit message
+process.env.DAILY_PAID_TRANSCRIPTION_MINUTES = "0"
 
 await resetDatabase(DATABASE_URL)
 

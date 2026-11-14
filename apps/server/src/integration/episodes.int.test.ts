@@ -7,6 +7,17 @@ import { insertPodcast, insertEpisode, insertTranscript } from "./factories.js"
 
 const MISSING_ID = "3f2b8c1e-9a4d-4c7b-8e21-5d6f7a8b9c0d"
 
+/// A finished paid transcript, as the worker records it
+async function usePaidMinutes(minutes: number, ago = "1 hour"): Promise<void> {
+  const episodeId = await insertEpisode(await insertPodcast("Already transcribed show"))
+  await insertTranscript(episodeId, { status: "done", fullText: "Paid." })
+  await pool.query(
+    `UPDATE transcripts SET source = 'groq', paid_seconds = $1, completed_at = now() - $2::interval
+     WHERE episode_id = $3`,
+    [minutes * 60, ago, episodeId]
+  )
+}
+
 describe("POST /episodes/:id/transcribe", () => {
   it("creates a pending transcript and enqueues one job", async () => {
     const episodeId = await insertEpisode(await insertPodcast(), { audioUrl: "https://example.com/a.mp3" })
@@ -34,6 +45,56 @@ describe("POST /episodes/:id/transcribe", () => {
       "Already transcribed or in progress",
       "Transcription job enqueued",
     ])
+    expect(enqueueTranscription).toHaveBeenCalledTimes(1)
+  })
+
+  it("lets a failed transcription be requested again", async () => {
+    const episodeId = await insertEpisode(await insertPodcast(), { audioUrl: "https://example.com/a.mp3" })
+    await insertTranscript(episodeId, { status: "failed" })
+
+    const res = await request(app).post(`/episodes/${episodeId}/transcribe`)
+
+    expect(res.body.message).toBe("Transcription job enqueued")
+    expect(enqueueTranscription).toHaveBeenCalledTimes(1)
+    const { rows } = await pool.query(`SELECT status FROM transcripts WHERE episode_id = $1`, [episodeId])
+    expect(rows).toEqual([{ status: "pending" }])
+  })
+
+  it("answers 429 once the daily paid limit is used up", async () => {
+    vi.stubEnv("DAILY_PAID_TRANSCRIPTION_MINUTES", "10")
+    await usePaidMinutes(10)
+    const episodeId = await insertEpisode(await insertPodcast(), { audioUrl: "https://example.com/a.mp3" })
+
+    const res = await request(app).post(`/episodes/${episodeId}/transcribe`)
+
+    expect(res.status).toBe(429)
+    expect(res.body).toEqual({ error: "Daily transcription limit reached. Try again tomorrow." })
+    expect(enqueueTranscription).not.toHaveBeenCalled()
+    const { rows } = await pool.query(`SELECT 1 FROM transcripts WHERE episode_id = $1`, [episodeId])
+    expect(rows).toHaveLength(0)
+  })
+
+  it("still transcribes episodes with a free feed transcript when the limit is used up", async () => {
+    vi.stubEnv("DAILY_PAID_TRANSCRIPTION_MINUTES", "0")
+    const episodeId = await insertEpisode(await insertPodcast(), { audioUrl: "https://example.com/a.mp3" })
+    await pool.query(
+      `UPDATE episodes SET transcript_url = 'https://example.com/a.vtt', transcript_format = 'vtt' WHERE id = $1`,
+      [episodeId]
+    )
+
+    const res = await request(app).post(`/episodes/${episodeId}/transcribe`)
+
+    expect(res.body.message).toBe("Transcription job enqueued")
+  })
+
+  it("only counts paid usage from the last 24 hours", async () => {
+    vi.stubEnv("DAILY_PAID_TRANSCRIPTION_MINUTES", "10")
+    await usePaidMinutes(10, "25 hours")
+    const episodeId = await insertEpisode(await insertPodcast(), { audioUrl: "https://example.com/a.mp3" })
+
+    const res = await request(app).post(`/episodes/${episodeId}/transcribe`)
+
+    expect(res.status).toBe(200)
     expect(enqueueTranscription).toHaveBeenCalledTimes(1)
   })
 

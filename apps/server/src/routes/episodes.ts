@@ -3,13 +3,15 @@ import { pool } from "../db/index.js"
 import { enqueueTranscription } from "../jobs/queue.js"
 import { estimateDifficulty, wordsPerMinute, type TimedSegment } from "../utils/readability.js"
 import { isUuid } from "../utils/ids.js"
+import { DAILY_LIMIT_MESSAGE, remainingSeconds } from "../services/transcriptionBudget.js"
 
 const router = Router()
 
 /// POST /episodes/:id/transcribe
-/// Creates a pending transcript row and enqueues the Whisper and embedding job.
+/// Creates a pending transcript row and enqueues the transcription job.
 /// If the episode is already transcribed or in progress, nothing is enqueued,
 /// so two visitors clicking at once never pay for the same transcription twice.
+/// A failed transcript can be requested again.
 router.post("/:id/transcribe", async (req, res) => {
   const { id } = req.params
 
@@ -18,8 +20,16 @@ router.post("/:id/transcribe", async (req, res) => {
     return
   }
 
-  const { rows } = await pool.query<{ id: string; audio_url: string }>(
-    `SELECT id, audio_url FROM episodes WHERE id = $1 AND audio_url IS NOT NULL`,
+  const { rows } = await pool.query<{
+    id: string
+    audio_url: string
+    transcript_url: string | null
+    transcript_status: string | null
+  }>(
+    `SELECT e.id, e.audio_url, e.transcript_url, t.status AS transcript_status
+     FROM episodes e
+     LEFT JOIN transcripts t ON t.episode_id = e.id
+     WHERE e.id = $1 AND e.audio_url IS NOT NULL`,
     [id]
   )
   const episode = rows[0]
@@ -28,10 +38,25 @@ router.post("/:id/transcribe", async (req, res) => {
     return
   }
 
+  if (episode.transcript_status !== null && episode.transcript_status !== "failed") {
+    res.json({ message: "Already transcribed or in progress", episodeId: episode.id })
+    return
+  }
+
+  /// Episodes with a free feed transcript never touch the paid budget
+  if (episode.transcript_url === null && (await remainingSeconds()) <= 0) {
+    res.status(429).json({ error: DAILY_LIMIT_MESSAGE })
+    return
+  }
+
+  /// Only a new row or a failed one becomes pending. If another request got
+  /// here first, the row is already pending and nothing comes back.
   const inserted = await pool.query(
     `INSERT INTO transcripts (episode_id, full_text, status)
      VALUES ($1, '', 'pending')
-     ON CONFLICT (episode_id) DO NOTHING
+     ON CONFLICT (episode_id) DO UPDATE
+     SET status = 'pending', progress = 0
+     WHERE transcripts.status = 'failed'
      RETURNING id`,
     [episode.id]
   )

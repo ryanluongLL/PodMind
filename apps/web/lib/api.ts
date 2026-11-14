@@ -49,8 +49,17 @@ export async function getPodcast(id: string): Promise<{ podcast: Podcast; episod
   return data
 }
 
+/// Throws an Error carrying the server's own message (for example the daily
+/// transcription limit), so the episode row can show it as is.
 export async function transcribeEpisode(episodeId: string): Promise<void> {
-  await api.post(`/episodes/${episodeId}/transcribe`)
+  try {
+    await api.post(`/episodes/${episodeId}/transcribe`)
+  } catch (err) {
+    if (axios.isAxiosError<{ error?: string }>(err) && err.response?.data?.error) {
+      throw new Error(err.response.data.error)
+    }
+    throw new Error("Could not start transcription. Please try again.")
+  }
 }
 
 export interface DifficultyResult {

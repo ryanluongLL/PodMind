@@ -7,7 +7,16 @@ export default defineConfig({
     exclude: ["src/integration/**", "node_modules/**"],
     coverage: {
       provider: "v8",
-      include: ["src/utils/**/*.ts", "src/discover/feedPreview.ts", "src/nlp/inflections.ts", "src/nlp/rankExamples.ts", "src/nlp/wordInfo.ts"],
+      include: [
+        "src/utils/**/*.ts",
+        "src/discover/feedPreview.ts",
+        "src/nlp/inflections.ts",
+        "src/nlp/rankExamples.ts",
+        "src/nlp/wordInfo.ts",
+        "src/transcripts/feedTranscript.ts",
+        "src/transcripts/downloadTranscript.ts",
+        "src/services/transcriber.ts",
+      ],
       exclude: ["**/*.test.ts"],
       thresholds: {
         lines: 90,

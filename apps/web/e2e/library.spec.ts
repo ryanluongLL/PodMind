@@ -33,6 +33,19 @@ test.describe("library", () => {
     await expect(titles).toHaveText(["A Day at the Bank", "Meeting New Friends"])
   })
 
+  test("asking for a transcript past the daily limit explains why it did not start", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Add podcast" }).first().click()
+    await page.getByRole("textbox", { name: "Search podcasts" }).fill("slow english")
+    await page.getByRole("button", { name: /Slow English Stories/ }).click()
+    await page.getByRole("link", { name: /Slow English Stories/ }).click()
+
+    await page.getByRole("button", { name: "Transcribe episode" }).first().click()
+
+    await expect(page.getByText("Daily transcription limit reached. Try again tomorrow.")).toBeVisible()
+    await expect(page.getByText("Transcript ready")).toHaveCount(0)
+  })
+
   test("Escape closes the add podcast dialog", async ({ page }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Add podcast" }).first().click()

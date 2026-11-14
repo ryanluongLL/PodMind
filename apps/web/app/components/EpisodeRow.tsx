@@ -1,6 +1,6 @@
 "use client"
 
-import { Play, Heart, Check, FileText, ExternalLink, ChevronDown, BarChart2 } from "lucide-react"
+import { Play, Heart, Check, FileText, ExternalLink, ChevronDown, BarChart2, RotateCcw, AlertCircle } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useEffect } from "react"
 import { usePlayer } from "@/lib/playerStore"
@@ -110,6 +110,13 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
   const isProcessing =
     episode.transcript_status === "processing" || episode.transcript_status === "pending"
 
+  const isFailed = episode.transcript_status === "failed"
+
+  let transcribeError: string | null = null
+  if (transcribeMutation.error instanceof Error) {
+    transcribeError = transcribeMutation.error.message
+  }
+
   return (
     <div className={`${styles.rowWrapper} ${expanded ? styles.rowExpanded : ""}`}>
       <div className={styles.row}>
@@ -146,7 +153,18 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
               </span>
             )}
             {isProcessing && <TranscribingBadge podcastId={episode.podcast_id} />}
+            {isFailed && !transcribeError && (
+              <span className={styles.failedBadge}>
+                <AlertCircle size={12} strokeWidth={2.5} />
+                Transcription failed
+              </span>
+            )}
           </div>
+          {transcribeError && (
+            <p className={styles.errorText} role="alert">
+              {transcribeError}
+            </p>
+          )}
         </div>
 
         <div className={styles.actions}>
@@ -175,6 +193,17 @@ export function EpisodeRow({ episode, podcastName }: { episode: Episode; podcast
               title="Transcribe episode"
             >
               <FileText size={16} />
+            </button>
+          )}
+
+          {isFailed && (
+            <button
+              onClick={() => transcribeMutation.mutate()}
+              disabled={transcribeMutation.isPending}
+              className={styles.transcribeBtn}
+              title="Retry transcription"
+            >
+              <RotateCcw size={16} />
             </button>
           )}
 
