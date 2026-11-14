@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/ryanluongLL/PodMind/actions/workflows/ci.yml/badge.svg)
 
-Learn English from real podcasts. PodMind transcribes episodes with timestamps, lets you click any word to see what it means **in that sentence**, saves it with its context, and schedules reviews with spaced repetition.
+Learn English from real podcasts. PodMind turns episodes into timestamped transcripts, lets you click any word to see what it means **in that sentence**, saves it with its context, and schedules reviews with spaced repetition.
 
 **Live demo:** [pod-mind-web.vercel.app](https://pod-mind-web.vercel.app)
 
@@ -15,13 +15,24 @@ Learn English from real podcasts. PodMind transcribes episodes with timestamps, 
 * **Spaced repetition review** with SM-2 (the algorithm behind Anki), streaks, and a daily listening goal
 * **CEFR difficulty (A1 to C2)** for every transcribed episode, from readability and speaking speed
 * **Semantic search** across every transcript with pgvector
+* **Low cost by design.** Free publisher transcripts come first, paid transcription is the fallback, and a daily cap keeps the worst case bill fixed
 * **No account needed.** The podcast library is shared, and personal progress stays in the browser
 
 ## Architecture
 
-![PodMind architecture: the browser talks to an Express API backed by PostgreSQL and a Redis job queue; a worker transcribes audio with Whisper; DeepL and iTunes are outside services](docs/architecture_excalidraw.png)
+![PodMind architecture: the browser talks to an Express API backed by PostgreSQL and a Redis job queue; a worker gets timed transcripts from the podcast feed or a Whisper provider; DeepL and iTunes are outside services](docs/architecture_excalidraw.png)
 
-Transcribing is slow, so it runs as a background job. The API puts the episode on a Redis queue (BullMQ). The worker downloads the audio, compresses it to 16 kbps with ffmpeg, sends it to Whisper for timestamped segments, and stores 500 word chunks with embeddings for search. A unique constraint on the transcript row means two people clicking Transcribe at the same moment still start only one job.
+Transcribing is slow, so it runs as a background job. The API puts the episode on a Redis queue (BullMQ). The worker downloads the audio and compresses it to 16 kbps with ffmpeg for the player, then gets a timed transcript (see below) and stores 500 word chunks with embeddings for search. A unique constraint on the transcript row means two people clicking Transcribe at the same moment still start only one job, and a failed transcript can be requested again.
+
+## Keeping costs near zero
+
+Transcription is the only part of PodMind that costs real money, so the worker tries the cheapest source first:
+
+1. **The publisher's own transcript, for free.** Many feeds link a timed transcript with the Podcasting 2.0 `<podcast:transcript>` tag. PodMind saves that link when a podcast is added, then downloads and parses it (VTT, SRT, or JSON) into the same timed segments Whisper would return. Word level cues are merged into sentence sized lines for the player.
+2. **Groq Whisper, as the fallback.** Only when a feed has no usable transcript does the audio go to Whisper Large v3 Turbo on Groq, about 9 times cheaper than OpenAI's `whisper-1`. Providers sit behind one small interface, and OpenAI still works when only its key is set.
+3. **A daily cap.** PodMind has no accounts, so anyone could press Transcribe. Paid audio minutes in the last 24 hours are capped (`DAILY_PAID_TRANSCRIPTION_MINUTES`, default 120). The API answers 429 with a clear message once the cap is reached, and the worker checks the episode's real length before paying. Free feed transcripts never count against it.
+
+Every transcript records where it came from (`feed`, `groq`, or `openai`) and how many seconds were paid for, so the savings can be measured, not guessed. Translation stays within DeepL's free tier because each word meaning is translated once and cached.
 
 ## How word lookup works
 
@@ -42,12 +53,14 @@ Every pull request runs four required checks on GitHub Actions. Nothing merges i
 
 | Check | What it covers |
 |---|---|
-| **Lint, types, unit tests, build** | ESLint, strict TypeScript for both apps, 125 unit tests (91 server, 34 web) with coverage limits, and production builds |
-| **Integration tests** | 50 tests that send real HTTP requests to the Express routes, backed by a fresh PostgreSQL 16 + pgvector database. DeepL, OpenAI, and Redis are replaced with fakes |
-| **End to end tests** | 11 Playwright tests in Chromium against a production build and the real API: onboarding, adding a podcast, word lookup, saving, review, and persistence. All internet access is blocked, and DeepL and the RSS feed are local fakes |
+| **Lint, types, unit tests, build** | ESLint, strict TypeScript for both apps, 179 unit tests (145 server, 34 web) with coverage limits, and production builds |
+| **Integration tests** | 60 tests that send real HTTP requests to the Express routes, backed by a fresh PostgreSQL 16 + pgvector database. DeepL, OpenAI, Groq, and Redis are replaced with fakes |
+| **End to end tests** | 12 Playwright tests in Chromium against a production build and the real API: onboarding, adding a podcast, word lookup, saving, review, the daily transcription limit, and persistence. All internet access is blocked, and DeepL and the RSS feed are local fakes |
 | **Performance budgets** | API speed limits under load on a 200 podcast library, JavaScript size limits per page, and Lighthouse scores (performance and best practices at least 0.9, accessibility 1.0) |
 
-The tests have caught real bugs: audio seeking that hung on suffix byte ranges, malformed IDs returning 500 instead of 404, an API that could not start without Redis, text that failed WCAG contrast, and a library list that would not show an N+1 query slowdown until the load test was given realistic data.
+No test ever calls a paid API: transcription providers are replaced with fakes, and the browser tests run with paid transcription turned off.
+
+The tests have caught real bugs: audio seeking that hung on suffix byte ranges, malformed IDs returning 500 instead of 404, an API that could not start without Redis, text that failed WCAG contrast, failed transcripts that could never be retried, and a library list that would not show an N+1 query slowdown until the load test was given realistic data.
 
 ## Tech stack
 
@@ -57,7 +70,7 @@ The tests have caught real bugs: audio seeking that hung on suffix byte ranges, 
 | Backend | Node.js 24, Express 5, TypeScript, BullMQ, ffmpeg |
 | Data | PostgreSQL 16, pgvector (HNSW index), Redis |
 | Language | wink-nlp, WordNet 3.1, OpenSubtitles frequency list, DeepL |
-| Speech and search | OpenAI Whisper, OpenAI embeddings |
+| Speech and search | Podcasting 2.0 transcripts, Groq Whisper Large v3 Turbo (OpenAI Whisper fallback), OpenAI embeddings |
 | Testing | Vitest, Supertest, Playwright, autocannon, Lighthouse CI |
 | CI | GitHub Actions with a branch ruleset on `main` |
 
@@ -68,7 +81,10 @@ apps/
   server/                 Express API and transcription worker
     src/routes/           HTTP routes
     src/nlp/              Tagging, Lesk, example ranking, inflections
-    src/jobs/             BullMQ queue and Whisper worker
+    src/jobs/             BullMQ queue and transcription worker
+    src/transcripts/      Feed transcript parsing (VTT, SRT, JSON) and download
+    src/services/         Transcription providers, daily cap, DeepL, embeddings
+    src/scrapers/         RSS and Podbean feed readers
     src/db/migrations/    SQL schema
     src/scripts/          WordNet and frequency list import
     src/integration/      Integration tests
@@ -94,11 +110,12 @@ npm install
 docker compose up -d
 ```
 
-**2. Create the schema**
+**2. Create the schema** by running every migration in order
 
 ```bash
-docker compose exec -T postgres psql -U podmind -d podmind < apps/server/src/db/migrations/001_schema.sql
-docker compose exec -T postgres psql -U podmind -d podmind < apps/server/src/db/migrations/002_dictionary.sql
+for f in apps/server/src/db/migrations/*.sql; do
+  docker compose exec -T postgres psql -U podmind -d podmind < "$f"
+done
 ```
 
 **3. Add environment files**
@@ -110,9 +127,13 @@ DATABASE_URL=postgresql://podmind:podmind@localhost:5432/podmind
 REDIS_URL=redis://localhost:6379
 PORT=3001
 FRONTEND_URL=http://localhost:3000
-OPENAI_API_KEY=your_key
 DEEPL_API_KEY=your_key
+OPENAI_API_KEY=your_key
+GROQ_API_KEY=your_key
+DAILY_PAID_TRANSCRIPTION_MINUTES=120
 ```
+
+`GROQ_API_KEY` is optional: without it, transcription falls back to OpenAI. Set `DAILY_PAID_TRANSCRIPTION_MINUTES=0` to allow only free feed transcripts. `TRANSCRIPTION_PROVIDER=groq` or `openai` forces one provider. `OPENAI_API_KEY` is also used for search embeddings.
 
 `apps/web/.env.local`
 
