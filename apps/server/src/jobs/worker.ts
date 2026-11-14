@@ -1,4 +1,4 @@
-import { Worker } from "bullmq"
+import { UnrecoverableError, Worker } from "bullmq"
 import { Redis } from "ioredis"
 import { pool } from "../db/index.js"
 import OpenAI from "openai"
@@ -9,6 +9,7 @@ import ffmpeg from "fluent-ffmpeg"
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg"
 import { feedTranscriptFor } from "../transcripts/feedTranscriptSource.js"
 import { providerFromEnv, transcribeFile, type ProviderName } from "../services/transcriber.js"
+import { DAILY_LIMIT_MESSAGE, estimateSeconds, remainingSeconds } from "../services/transcriptionBudget.js"
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path)
 
@@ -104,15 +105,29 @@ const worker = new Worker(
       /// Free first: the transcript the publisher links in its feed
       let transcript = await feedTranscriptFor(episodeId)
       let source: TranscriptSource = "feed"
+      let paidSeconds: number | null = null
 
       /// Paid only when the feed has nothing usable
       if (transcript === null) {
         const provider = providerFromEnv()
         if (provider === null) {
-          throw new Error("No transcription provider configured: set GROQ_API_KEY or OPENAI_API_KEY")
+          throw new UnrecoverableError("No transcription provider configured: set GROQ_API_KEY or OPENAI_API_KEY")
         }
-        transcript = await transcribeFile(compressedPath, provider)
+
+        /// Check the daily cap with this episode's length before paying.
+        /// UnrecoverableError skips the retries, since retrying cannot help.
+        const estimate = estimateSeconds(fs.statSync(compressedPath).size)
+        const remaining = await remainingSeconds()
+        if (estimate > remaining) {
+          throw new UnrecoverableError(
+            `${DAILY_LIMIT_MESSAGE} Needs ${Math.ceil(estimate / 60)} min, ${Math.floor(remaining / 60)} min left.`
+          )
+        }
+
+        const paid = await transcribeFile(compressedPath, provider)
+        transcript = paid
         source = provider.name
+        paidSeconds = Math.ceil(paid.durationSeconds ?? estimate)
       }
 
       transcriptText = transcript.fullText
@@ -121,8 +136,10 @@ const worker = new Worker(
       )
 
       await pool.query(
-        `UPDATE transcripts SET full_text = $1, segments = $2, source = $3, status = 'done' WHERE episode_id = $4`,
-        [transcriptText, JSON.stringify(transcript.segments), source, episodeId]
+        `UPDATE transcripts
+         SET full_text = $1, segments = $2, source = $3, paid_seconds = $4, completed_at = now(), status = 'done'
+         WHERE episode_id = $5`,
+        [transcriptText, JSON.stringify(transcript.segments), source, paidSeconds, episodeId]
       )
     }
 
@@ -157,9 +174,11 @@ const worker = new Worker(
 worker.on("failed", async (job, err) => {
   console.error(`[worker] job ${job?.id} failed:`, err)
 
-  /// After the last retry, mark the transcript as failed so the UI stops
+  /// After the last retry, or right away for an error retries cannot fix,
+  /// mark the transcript as failed so the UI offers to try again instead of
   /// showing it as in progress forever.
-  if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+  const lastAttempt = job !== undefined && job.attemptsMade >= (job.opts.attempts ?? 1)
+  if (job && (lastAttempt || err instanceof UnrecoverableError)) {
     const { episodeId } = job.data as { episodeId: string }
     await pool.query(`UPDATE transcripts SET status = 'failed' WHERE episode_id = $1`, [episodeId])
   }

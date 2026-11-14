@@ -12,9 +12,11 @@ vi.mock("../jobs/queue.js", () => ({ enqueueTranscription: vi.fn() }))
 vi.mock("../services/translator.js", () => ({ translateWord: vi.fn() }))
 vi.mock("../services/embeddings.js", () => ({ embedQuery: vi.fn() }))
 
-/// Every test starts from empty tables, so no test depends on another
+/// Every test starts from empty tables and default settings, so no test
+/// depends on another
 beforeEach(async () => {
   vi.clearAllMocks()
+  vi.unstubAllEnvs()
   await pool.query(
     `TRUNCATE podcasts, episodes, transcripts, embeddings,
               dictionary_senses, word_frequency, translation_cache
