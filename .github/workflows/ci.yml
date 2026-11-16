@@ -171,4 +171,44 @@ jobs:
           cache: npm
 
       - name: Install
-        run: npm
+        run: npm ci
+
+      # The web build points at the end to end API, which serves the pages
+      # Lighthouse loads below
+      - name: Build web app
+        run: npm run build --workspace web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3101
+
+      - name: JavaScript size budgets
+        run: npm run perf:bundle
+
+      # Starts the end to end server itself, fills a realistic library,
+      # measures each route, and stops the server
+      - name: API speed budgets
+        run: npm run perf:api
+
+      - name: Start API for Lighthouse
+        run: |
+          npm run e2e:server --workspace server > e2e-server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3101/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl -sf -X POST http://localhost:3102/__seed/transcribed-episode
+
+      - name: Lighthouse budgets
+        run: npm run perf:lighthouse
+
+      # On failure, keep the full Lighthouse reports and the API log
+      - name: Upload performance reports
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: performance-reports
+          path: |
+            apps/web/.lighthouseci
+            e2e-server.log
+          retention-days: 14
