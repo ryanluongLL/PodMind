@@ -3,7 +3,6 @@ import request from "supertest"
 import { app } from "../app.js"
 import { pool } from "../db/index.js"
 import { scrapeRSS } from "../scrapers/rss.js"
-import { scrapePodbean } from "../scrapers/podbean.js"
 import { fakeFeed, insertPodcast, insertEpisode, insertTranscript } from "./factories.js"
 
 const FEED_URL = "https://feeds.example.com/slow-english.rss"
@@ -116,16 +115,16 @@ describe("POST /podcasts", () => {
     expect(await countRows("episodes")).toBe(2)
   })
 
-  it("uses the Podbean scraper for Podbean pages", async () => {
-    const url = "https://www.podbean.com/podcast-detail/abc123/Slow-English"
-    vi.mocked(scrapePodbean).mockResolvedValue(fakeFeed())
+  it("turns away Podbean pages with a pointer to the feed", async () => {
+    const res = await request(app)
+      .post("/podcasts")
+      .send({ url: "https://www.podbean.com/podcast-detail/abc123/Slow-English" })
 
-    const res = await request(app).post("/podcasts").send({ url })
-
-    expect(res.status).toBe(200)
-    expect(scrapePodbean).toHaveBeenCalledWith(url)
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({
+      error: "Podbean pages are not supported. Search for the podcast, or paste its RSS feed URL.",
+    })
     expect(scrapeRSS).not.toHaveBeenCalled()
-    expect(res.body.podcast).toMatchObject({ podbean_url: url, rss_url: null })
   })
 
   it("answers 500 and saves nothing when the feed cannot be read", async () => {

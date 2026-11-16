@@ -17,11 +17,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # Tests replace the Podbean scraper with a fake, so CI never needs the
-  # browser Puppeteer would otherwise download on every install
-  PUPPETEER_SKIP_DOWNLOAD: "true"
-
 jobs:
   checks:
     name: Lint, types, unit tests, build
