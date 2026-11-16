@@ -84,7 +84,7 @@ apps/
     src/jobs/             BullMQ queue and transcription worker
     src/transcripts/      Feed transcript parsing (VTT, SRT, JSON) and download
     src/services/         Transcription providers, daily cap, DeepL, embeddings
-    src/scrapers/         RSS and Podbean feed readers
+    src/scrapers/         RSS feed reader
     src/db/migrations/    SQL schema
     src/scripts/          WordNet and frequency list import
     src/integration/      Integration tests

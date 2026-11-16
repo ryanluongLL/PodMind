@@ -29,7 +29,7 @@ export interface ParsedEpisode {
   iconUrl: string | null
   publishedAt: Date | null
   /// The free transcript the publisher links in the feed, when there is one.
-  /// Optional because the Podbean scraper never finds one.
+  /// Optional so tests can build episodes without spelling it out.
   transcript?: { url: string; format: TranscriptFormat } | null
 }
 

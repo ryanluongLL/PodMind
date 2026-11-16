@@ -1,12 +1,15 @@
 import { Router } from "express"
 import { pool } from "../db/index.js"
 import { scrapeRSS } from "../scrapers/rss.js"
-import { scrapePodbean } from "../scrapers/podbean.js"
 import { isUuid } from "../utils/ids.js"
 
 const router = Router()
 
-const PODBEAN_PREFIX = "https://www.podbean.com/podcast-detail/"
+/// Podbean show pages are web pages, not feeds. Reading them took a full
+/// headless browser, so they are turned away with a pointer to the feed,
+/// which every Podbean show also publishes.
+const PODBEAN_PAGE_PREFIX = "https://www.podbean.com/podcast-detail/"
+const PODBEAN_PAGE_MESSAGE = "Podbean pages are not supported. Search for the podcast, or paste its RSS feed URL."
 
 /// POST /podcasts
 /// Scrapes a feed and adds the podcast to the shared library. Adding a
@@ -20,40 +23,29 @@ router.post("/", async (req, res) => {
     return
   }
 
-  const isPodbean = url.startsWith(PODBEAN_PREFIX)
-  const isRSS = url.startsWith("http")
+  if (url.startsWith(PODBEAN_PAGE_PREFIX)) {
+    res.status(400).json({ error: PODBEAN_PAGE_MESSAGE })
+    return
+  }
 
-  if (!isPodbean && !isRSS) {
+  if (!url.startsWith("http")) {
     res.status(400).json({ error: "Invalid URL" })
     return
   }
 
   try {
-    let parsed
-    if (isPodbean) {
-      parsed = await scrapePodbean(url)
-    } else {
-      parsed = await scrapeRSS(url)
-    }
-
+    const parsed = await scrapeRSS(url)
     const finalIconUrl = iconUrl ?? parsed.iconUrl
-
-    let podbeanUrl: string | null = null
-    let rssUrl: string | null = url
-    if (isPodbean) {
-      podbeanUrl = url
-      rssUrl = null
-    }
 
     /// user_id is left to its default value, so the existing
     /// (rss_url, user_id) unique constraint acts as unique on rss_url alone.
     const { rows } = await pool.query(
-      `INSERT INTO podcasts (name, podbean_url, rss_url, icon_url)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO podcasts (name, rss_url, icon_url)
+       VALUES ($1, $2, $3)
        ON CONFLICT (rss_url, user_id) DO UPDATE
        SET name = EXCLUDED.name, icon_url = EXCLUDED.icon_url
        RETURNING *`,
-      [parsed.name, podbeanUrl, rssUrl, finalIconUrl]
+      [parsed.name, url, finalIconUrl]
     )
 
     const podcast = rows[0]

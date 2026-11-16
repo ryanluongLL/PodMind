@@ -7,7 +7,6 @@ import { pool } from "../db/index.js"
 /// Redis is replaced with a fake, so tests are fast, free, and never flaky
 /// because of someone else's server. Each test sets what the fakes return.
 vi.mock("../scrapers/rss.js", () => ({ scrapeRSS: vi.fn() }))
-vi.mock("../scrapers/podbean.js", () => ({ scrapePodbean: vi.fn() }))
 vi.mock("../jobs/queue.js", () => ({ enqueueTranscription: vi.fn() }))
 vi.mock("../services/translator.js", () => ({ translateWord: vi.fn() }))
 vi.mock("../services/embeddings.js", () => ({ embedQuery: vi.fn() }))
