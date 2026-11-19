@@ -5,8 +5,9 @@ import Link from "next/link"
 import dynamic from "next/dynamic"
 import { useQuery } from "@tanstack/react-query"
 import { Plus } from "lucide-react"
-import { getPodcasts } from "@/lib/api"
-import { useProfile } from "@/lib/localStore"
+import { toast } from "sonner"
+import { getPodcasts, type Podcast } from "@/lib/api"
+import { hidePodcast, restorePodcast, useHiddenPodcasts, useProfile } from "@/lib/localStore"
 import { PodcastCard } from "./components/PostcastCard"
 import { AddPodcastModal } from "./components/AddPodcastModal"
 import { StatsBar } from "./components/StatsBar"
@@ -20,7 +21,9 @@ const OnboardingModal = dynamic(
 
 export default function Home() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
   const profile = useProfile()
+  const hiddenIds = useHiddenPodcasts()
 
   const { data: podcasts, isLoading } = useQuery({
     queryKey: ["podcasts"],
@@ -31,8 +34,31 @@ export default function Home() {
   /// modal never flashes on screen for returning visitors
   const showOnboarding = profile !== undefined && !profile.onboarded
 
+  /// Hiding only affects this browser. The toast offers Undo, and the
+  /// "Show hidden" section below the grid can restore it later too.
+  const handleHide = (podcast: Podcast) => {
+    hidePodcast(podcast.id)
+    toast(`Removed ${podcast.name} from your library`, {
+      action: { label: "Undo", onClick: () => restorePodcast(podcast.id) },
+    })
+  }
+
+  const handleRestore = (podcast: Podcast) => {
+    restorePodcast(podcast.id)
+    toast.success(`Restored ${podcast.name} to your library`)
+  }
+
+  let visiblePodcasts: Podcast[] = []
+  let hiddenPodcasts: Podcast[] = []
+  if (podcasts && hiddenIds) {
+    visiblePodcasts = podcasts.filter((p) => !hiddenIds.includes(p.id))
+    hiddenPodcasts = podcasts.filter((p) => hiddenIds.includes(p.id))
+  }
+
   let libraryContent
-  if (isLoading) {
+  /// hiddenIds is undefined until the browser has read localStorage, so the
+  /// skeleton stays up and hidden podcasts never flash on screen first
+  if (isLoading || hiddenIds === undefined) {
     libraryContent = (
       <div className={styles.grid}>
         {[0, 1, 2, 3, 4].map((i) => (
@@ -44,11 +70,11 @@ export default function Home() {
         ))}
       </div>
     )
-  } else if (podcasts && podcasts.length > 0) {
+  } else if (visiblePodcasts.length > 0) {
     libraryContent = (
       <div className={styles.grid}>
-        {podcasts.map((p) => (
-          <PodcastCard key={p.id} podcast={p} />
+        {visiblePodcasts.map((p) => (
+          <PodcastCard key={p.id} podcast={p} onHide={handleHide} />
         ))}
       </div>
     )
@@ -112,6 +138,26 @@ export default function Home() {
         </section>
 
         {libraryContent}
+
+        {hiddenPodcasts.length > 0 && (
+          <section className={styles.hiddenSection} aria-label="Hidden podcasts">
+            <button
+              type="button"
+              onClick={() => setShowHidden((shown) => !shown)}
+              className={styles.hiddenToggle}
+              aria-expanded={showHidden}
+            >
+              {showHidden ? "Hide" : "Show"} hidden podcasts ({hiddenPodcasts.length})
+            </button>
+            {showHidden && (
+              <div className={`${styles.grid} ${styles.hiddenGrid}`}>
+                {hiddenPodcasts.map((p) => (
+                  <PodcastCard key={p.id} podcast={p} hidden onRestore={handleRestore} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       {isAddModalOpen && <AddPodcastModal onClose={() => setIsAddModalOpen(false)} />}
