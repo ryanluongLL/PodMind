@@ -1,6 +1,10 @@
 .card {
-  display: block;
   position: relative;
+  border-radius: var(--radius-md);
+}
+
+.link {
+  display: block;
   border-radius: var(--radius-md);
 }
 
@@ -15,7 +19,7 @@
   transition: transform 200ms, box-shadow 200ms;
 }
 
-.card:hover .coverWrapper {
+.link:hover .coverWrapper {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
@@ -54,7 +58,13 @@
   margin-top: 0.125rem;
 }
 
-.deleteBtn {
+/* Hidden podcasts stay readable but step back visually */
+.cardHidden .coverWrapper {
+  opacity: 0.55;
+}
+
+/* Hide or restore button over the cover's top right corner */
+.actionBtn {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
@@ -62,30 +72,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: var(--radius-control);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--border);
   color: var(--text-muted);
   opacity: 0;
-  transition: opacity 150ms, background 150ms, color 150ms;
+  transition: opacity 150ms, color 150ms, border-color 150ms;
 }
 
-.card:hover .deleteBtn,
-.deleteBtn:focus-visible {
+.card:hover .actionBtn,
+.actionBtn:focus-visible,
+.actionBtnVisible {
   opacity: 1;
 }
 
-.deleteBtn:hover {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
+.actionBtn:hover {
+  color: var(--text);
+  border-color: var(--border-hover);
 }
 
-.deleteBtnConfirm {
-  opacity: 1;
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
+/* Touch screens have no hover, so the button is always shown there */
+@media (hover: none) {
+  .actionBtn {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coverWrapper,
+  .actionBtn {
+    transition: none;
+  }
 }

@@ -13,6 +13,9 @@ import {
   reviewWord,
   getFavorites,
   toggleFavorite,
+  getHiddenPodcasts,
+  hidePodcast,
+  restorePodcast,
   getActivity,
   recordActivity,
   currentStreak,
@@ -20,6 +23,7 @@ import {
   useWords,
   useFavorites,
   useActivity,
+  useHiddenPodcasts,
   type SavedWord,
 } from "./localStore"
 
@@ -245,6 +249,37 @@ describe("favorites", () => {
   })
 })
 
+describe("hidden podcasts", () => {
+  it("hides podcasts in this browser and restores them", () => {
+    hidePodcast("pod-1")
+    hidePodcast("pod-2")
+    expect(getHiddenPodcasts()).toEqual(["pod-1", "pod-2"])
+    restorePodcast("pod-1")
+    expect(getHiddenPodcasts()).toEqual(["pod-2"])
+  })
+
+  it("does not store the same podcast twice", () => {
+    hidePodcast("pod-1")
+    hidePodcast("pod-1")
+    expect(getHiddenPodcasts()).toEqual(["pod-1"])
+  })
+
+  it("ignores restoring a podcast that is not hidden", () => {
+    hidePodcast("pod-1")
+    restorePodcast("pod-9")
+    expect(getHiddenPodcasts()).toEqual(["pod-1"])
+  })
+
+  it("treats broken or wrongly shaped data as nothing hidden", () => {
+    window.localStorage.setItem("podmind:hidden-podcasts", "{not json")
+    expect(getHiddenPodcasts()).toEqual([])
+    window.localStorage.setItem("podmind:hidden-podcasts", JSON.stringify({ id: "pod-1" }))
+    expect(getHiddenPodcasts()).toEqual([])
+    window.localStorage.setItem("podmind:hidden-podcasts", JSON.stringify(["pod-1", 42, null]))
+    expect(getHiddenPodcasts()).toEqual(["pod-1"])
+  })
+})
+
 describe("activity and streaks", () => {
   it("starts a streak at 1 and adds minutes for the day", () => {
     recordActivity(5, TODAY)
@@ -318,6 +353,15 @@ describe("React hooks", () => {
     })
     expect(favorites.result.current).toEqual(["ep-1"])
     expect(activity.result.current?.minutesByDate[TODAY]).toBe(3)
+  })
+
+  it("cover hidden podcasts too", () => {
+    const { result } = renderHook(() => useHiddenPodcasts())
+    expect(result.current).toEqual([])
+    act(() => {
+      hidePodcast("pod-1")
+    })
+    expect(result.current).toEqual(["pod-1"])
   })
 
   it("stop listening after unmount", () => {

@@ -11,6 +11,7 @@ const KEYS = {
   vocabulary: "podmind:vocabulary",
   favorites: "podmind:favorites",
   activity: "podmind:activity",
+  hiddenPodcasts: "podmind:hidden-podcasts",
 } as const
 
 const CHANGE_EVENT = "podmind:change"
@@ -62,6 +63,7 @@ const DEFAULT_ACTIVITY: Activity = {
 
 const EMPTY_WORDS: SavedWord[] = []
 const EMPTY_FAVORITES: string[] = []
+const EMPTY_HIDDEN: string[] = []
 
 /// Dates are stored as local YYYY-MM-DD strings. Using the learner's local
 /// day (not UTC) means a streak rolls over at their midnight, and string
@@ -274,6 +276,39 @@ export function toggleFavorite(episodeId: string): void {
   }
 }
 
+/// Hidden podcasts (podcast ids)
+///
+/// The library is shared by every visitor, so removing a podcast only hides
+/// it in this browser. Nothing is deleted on the server, and a hidden
+/// podcast can always be restored.
+
+function parseHidden(raw: string | null): string[] {
+  const value = safeParse<unknown>(raw, EMPTY_HIDDEN)
+  if (!Array.isArray(value)) {
+    return EMPTY_HIDDEN
+  }
+  return value.filter((id): id is string => typeof id === "string")
+}
+
+export function getHiddenPodcasts(): string[] {
+  return parseHidden(readRaw(KEYS.hiddenPodcasts))
+}
+
+export function hidePodcast(podcastId: string): void {
+  const hidden = getHiddenPodcasts()
+  if (hidden.includes(podcastId)) {
+    return
+  }
+  writeJson(KEYS.hiddenPodcasts, [...hidden, podcastId])
+}
+
+export function restorePodcast(podcastId: string): void {
+  writeJson(
+    KEYS.hiddenPodcasts,
+    getHiddenPodcasts().filter((id) => id !== podcastId)
+  )
+}
+
 /// Activity: streak and minutes listened per day.
 /// Listening or reviewing on a day keeps the streak alive.
 
@@ -372,4 +407,8 @@ export function useFavorites(): string[] | undefined {
 
 export function useActivity(): Activity | undefined {
   return useStoredValue(KEYS.activity, parseActivity)
+}
+
+export function useHiddenPodcasts(): string[] | undefined {
+  return useStoredValue(KEYS.hiddenPodcasts, parseHidden)
 }
