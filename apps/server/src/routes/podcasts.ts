@@ -50,17 +50,32 @@ router.post("/", async (req, res) => {
 
     const podcast = rows[0]
     for (const ep of parsed.episodes) {
+      /// Episodes saved before guids existed (migration 006) have no guid.
+      /// Hand this guid to the matching old row first, so refreshing a feed
+      /// updates that row instead of adding a copy of it.
+      await pool.query(
+        `UPDATE episodes SET guid = $3
+         WHERE id = (
+           SELECT id FROM episodes
+           WHERE podcast_id = $1 AND guid IS NULL AND episode_url = $2
+           LIMIT 1
+         )
+         AND NOT EXISTS (SELECT 1 FROM episodes WHERE podcast_id = $1 AND guid = $3)`,
+        [podcast.id, ep.episodeUrl, ep.guid]
+      )
+
       /// An episode that is already saved keeps everything except its
       /// transcript link, which publishers often add after the episode airs.
       await pool.query(
         `INSERT INTO episodes
-           (podcast_id, title, episode_url, audio_url, icon_url, published_at, transcript_url, transcript_format)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (episode_url, user_id) DO UPDATE
+           (podcast_id, guid, title, episode_url, audio_url, icon_url, published_at, transcript_url, transcript_format)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (podcast_id, guid) DO UPDATE
          SET transcript_url = EXCLUDED.transcript_url,
              transcript_format = EXCLUDED.transcript_format`,
         [
           podcast.id,
+          ep.guid,
           ep.title,
           ep.episodeUrl,
           ep.audioUrl,
