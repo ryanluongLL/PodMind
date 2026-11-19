@@ -24,6 +24,9 @@ export const MAX_EPISODES = 20
 
 export interface ParsedEpisode {
   title: string
+  /// What makes this episode unique within its feed (see episodeKeyFor)
+  guid: string
+  /// Where "Open original episode" links to
   episodeUrl: string
   audioUrl: string | null
   iconUrl: string | null
@@ -62,12 +65,32 @@ export function transcriptLinks(item: CustomItem): FeedTranscriptLink[] {
 }
 
 /// The episode page link when it is a real web address, otherwise the guid,
-/// otherwise the audio file, so every episode still gets a unique key.
+/// otherwise the audio file. Only used for the "Open original episode" link,
+/// since many feeds give every episode the same link.
 function episodeUrlFor(item: FeedItem): string {
   if (item.link?.startsWith("http")) {
     return item.link
   }
   return item.guid ?? item.enclosure?.url ?? ""
+}
+
+/// RSS made <guid> to tell episodes apart, so it comes first. Feeds without
+/// one fall back to the audio file, which is almost always unique, then the
+/// link, then the title and date.
+export function episodeKeyFor(item: FeedItem): string {
+  const guid = item.guid?.trim()
+  if (guid) {
+    return guid
+  }
+  const audio = item.enclosure?.url?.trim()
+  if (audio) {
+    return audio
+  }
+  const link = item.link?.trim()
+  if (link) {
+    return link
+  }
+  return `${item.title ?? "Untitled"}|${item.pubDate ?? ""}`
 }
 
 export function mapFeed(feed: Feed): ParsedPodcast {
@@ -76,6 +99,7 @@ export function mapFeed(feed: Feed): ParsedPodcast {
     iconUrl: feed.image?.url ?? null,
     episodes: feed.items.slice(0, MAX_EPISODES).map((item) => ({
       title: item.title ?? "Untitled",
+      guid: episodeKeyFor(item),
       episodeUrl: episodeUrlFor(item),
       audioUrl: item.enclosure?.url ?? null,
       iconUrl: item.itunes?.image ?? null,

@@ -11,6 +11,7 @@ export function fakeFeed(overrides: Partial<ParsedPodcast> = {}): ParsedPodcast 
     episodes: [
       {
         title: "Episode 2",
+        guid: "episode-2",
         episodeUrl: "https://example.com/ep2",
         audioUrl: "https://example.com/ep2.mp3",
         iconUrl: null,
@@ -18,6 +19,7 @@ export function fakeFeed(overrides: Partial<ParsedPodcast> = {}): ParsedPodcast 
       },
       {
         title: "Episode 1",
+        guid: "episode-1",
         episodeUrl: "https://example.com/ep1",
         audioUrl: "https://example.com/ep1.mp3",
         iconUrl: null,

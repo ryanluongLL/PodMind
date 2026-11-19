@@ -32,6 +32,7 @@ describe("parseFeed", () => {
     expect(parsed.episodes).toEqual([
       {
         title: "Episode 1",
+        guid: "https://example.com/ep1.mp3",
         episodeUrl: "https://example.com/ep1",
         audioUrl: "https://example.com/ep1.mp3",
         iconUrl: "https://example.com/ep1.jpg",
@@ -89,6 +90,50 @@ describe("parseFeed", () => {
       "",
     ])
     expect(parsed.episodes[2]).toMatchObject({ title: "Untitled", audioUrl: null, publishedAt: null })
+  })
+
+  it("tells episodes apart by guid even when they share one link", async () => {
+    const parsed = await parseFeed(
+      feedXml(`
+      <item>
+        <title>Monday</title>
+        <link>https://example.com</link>
+        <guid isPermaLink="false">news-2026-11-16</guid>
+      </item>
+      <item>
+        <title>Tuesday</title>
+        <link>https://example.com</link>
+        <guid isPermaLink="false">news-2026-11-17</guid>
+      </item>`)
+    )
+
+    expect(parsed.episodes.map((episode) => episode.guid)).toEqual(["news-2026-11-16", "news-2026-11-17"])
+    expect(parsed.episodes.map((episode) => episode.episodeUrl)).toEqual(["https://example.com", "https://example.com"])
+  })
+
+  it("falls back to the audio file, the link, then title and date for the key", async () => {
+    const parsed = await parseFeed(
+      feedXml(`
+      <item>
+        <title>Audio</title>
+        <link>https://example.com/shared</link>
+        <enclosure url="https://example.com/a.mp3" type="audio/mpeg" length="1"/>
+      </item>
+      <item>
+        <title>Link only</title>
+        <link>https://example.com/b</link>
+      </item>
+      <item>
+        <title>Nothing else</title>
+        <pubDate>Mon, 16 Nov 2026 00:00:00 GMT</pubDate>
+      </item>`)
+    )
+
+    expect(parsed.episodes.map((episode) => episode.guid)).toEqual([
+      "https://example.com/a.mp3",
+      "https://example.com/b",
+      "Nothing else|Mon, 16 Nov 2026 00:00:00 GMT",
+    ])
   })
 
   it("names an untitled feed and keeps only the newest episodes", async () => {

@@ -72,6 +72,7 @@ describe("POST /podcasts", () => {
     const withNewEpisode = fakeFeed()
     withNewEpisode.episodes.unshift({
       title: "Episode 3",
+      guid: "episode-3",
       episodeUrl: "https://example.com/ep3",
       audioUrl: "https://example.com/ep3.mp3",
       iconUrl: null,
@@ -81,6 +82,45 @@ describe("POST /podcasts", () => {
     await request(app).post("/podcasts").send({ url: FEED_URL })
 
     expect(await countRows("episodes")).toBe(3)
+  })
+
+  it("keeps episodes apart when every episode links to the same homepage", async () => {
+    const feed = fakeFeed()
+    for (const episode of feed.episodes) {
+      episode.episodeUrl = "https://example.com"
+    }
+    vi.mocked(scrapeRSS).mockResolvedValue(feed)
+
+    await request(app).post("/podcasts").send({ url: FEED_URL })
+
+    expect(await countRows("episodes")).toBe(2)
+  })
+
+  it("lets two podcasts link their episodes to the same page", async () => {
+    vi.mocked(scrapeRSS).mockResolvedValueOnce(fakeFeed())
+    await request(app).post("/podcasts").send({ url: FEED_URL })
+
+    vi.mocked(scrapeRSS).mockResolvedValueOnce(fakeFeed({ name: "Another Show" }))
+    await request(app).post("/podcasts").send({ url: "https://feeds.example.com/another.rss" })
+
+    expect(await countRows("episodes")).toBe(4)
+  })
+
+  it("gives an episode saved before guids existed its guid instead of copying it", async () => {
+    const podcastId = await insertPodcast("Slow English Stories", FEED_URL)
+    await pool.query(
+      `INSERT INTO episodes (podcast_id, title, episode_url) VALUES ($1, 'Episode 1', 'https://example.com/ep1')`,
+      [podcastId]
+    )
+    vi.mocked(scrapeRSS).mockResolvedValue(fakeFeed())
+
+    await request(app).post("/podcasts").send({ url: FEED_URL })
+
+    const { rows } = await pool.query(`SELECT title, guid FROM episodes ORDER BY title`)
+    expect(rows).toEqual([
+      { title: "Episode 1", guid: "episode-1" },
+      { title: "Episode 2", guid: "episode-2" },
+    ])
   })
 
   it("saves the transcript link the publisher puts in the feed", async () => {
