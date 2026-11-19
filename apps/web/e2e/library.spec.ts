@@ -71,4 +71,40 @@ test.describe("library", () => {
     await page.reload()
     await expect(titles).toHaveText(["Meeting New Friends", "A Day at the Bank"])
   })
+
+  test("removing a podcast hides it in this browser until it is restored", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Add podcast" }).first().click()
+    await page.getByRole("textbox", { name: "Search podcasts" }).fill("slow english")
+    await page.getByRole("button", { name: /Slow English Stories/ }).click()
+    await expect(page.getByRole("link", { name: /Slow English Stories/ })).toBeVisible()
+
+    await page.getByRole("button", { name: "Remove Slow English Stories from my library" }).click()
+    await expect(page.getByText("Removed Slow English Stories from your library")).toBeVisible()
+    await expect(page.getByRole("link", { name: /Slow English Stories/ })).toHaveCount(0)
+    await expect(page.getByRole("heading", { name: "Start with one podcast" })).toBeVisible()
+
+    /// Hidden is stored in localStorage, so it survives a reload
+    await page.reload()
+    await expect(page.getByRole("link", { name: /Slow English Stories/ })).toHaveCount(0)
+
+    const toggle = page.getByRole("button", { name: "Show hidden podcasts (1)" })
+    await toggle.click()
+    await page.getByRole("button", { name: "Restore Slow English Stories to my library" }).click()
+
+    await expect(page.getByRole("link", { name: /Slow English Stories/ })).toBeVisible()
+    await expect(page.getByRole("button", { name: /hidden podcasts/ })).toHaveCount(0)
+  })
+
+  test("Undo in the toast brings a removed podcast straight back", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Add podcast" }).first().click()
+    await page.getByRole("textbox", { name: "Search podcasts" }).fill("slow english")
+    await page.getByRole("button", { name: /Slow English Stories/ }).click()
+
+    await page.getByRole("button", { name: "Remove Slow English Stories from my library" }).click()
+    await page.getByRole("button", { name: "Undo" }).click()
+
+    await expect(page.getByRole("link", { name: /Slow English Stories/ })).toBeVisible()
+  })
 })
